@@ -10,7 +10,23 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "analyze": "next experimental-analyze"
+    "analyze": "next experimental-analyze",
+    "prepare": "husky",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "release": "standard-version",
+    "release:minor": "standard-version --release-as minor",
+    "release:major": "standard-version --release-as major",
+    "release:patch": "standard-version --release-as patch"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix --max-warnings=0",
+      "prettier --write"
+    ],
+    "*.{json,md,css,yml,yaml}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -67,6 +83,8 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
     "@lhci/cli": "^0.15.1",
     "@next/bundle-analyzer": "^16.1.4",
     "@playwright/test": "^1.58.1",
@@ -87,7 +105,10 @@
     "eslint-config-next": "16.1.1",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.0.1",
+    "husky": "^9.1.7",
     "jsdom": "^27.4.0",
+    "lint-staged": "^16.4.0",
+    "standard-version": "^9.5.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.17"

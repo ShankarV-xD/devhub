@@ -1,0 +1,38 @@
+# DO6: Dependabot — auto-opens PRs for dependency updates weekly
+# Minor/patch updates for npm + GitHub Actions itself
+
+version: 2
+updates:
+  # npm / pnpm packages
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+    open-pull-requests-limit: 5
+    groups:
+      # Bundle minor/patch non-breaking updates together
+      react-ecosystem:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+      next-ecosystem:
+        patterns:
+          - "next"
+          - "eslint-config-next"
+          - "@next/*"
+      testing:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+          - "@playwright/*"
+          - "@testing-library/*"
+
+  # GitHub Actions versions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"

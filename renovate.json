@@ -1,0 +1,45 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:base"],
+  "schedule": ["before 6am on Monday"],
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "description": "Auto-merge minor and patch non-breaking updates",
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": "!/^0/",
+      "automerge": true
+    },
+    {
+      "description": "Auto-merge all devDependency updates",
+      "matchDepTypes": ["devDependencies"],
+      "automerge": true
+    },
+    {
+      "description": "Group React ecosystem updates",
+      "matchPackagePatterns": ["^react", "^@types/react"],
+      "groupName": "react"
+    },
+    {
+      "description": "Group Next.js ecosystem updates",
+      "matchPackagePatterns": ["^next", "^eslint-config-next", "^@next/"],
+      "groupName": "nextjs"
+    },
+    {
+      "description": "Group testing tools",
+      "matchPackagePatterns": [
+        "^vitest",
+        "^@vitest/",
+        "^@playwright/",
+        "^@testing-library/"
+      ],
+      "groupName": "testing"
+    },
+    {
+      "description": "Pin GitHub Actions to exact SHA for security",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true
+    }
+  ]
+}
