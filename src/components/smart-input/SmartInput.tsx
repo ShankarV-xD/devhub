@@ -236,7 +236,6 @@ export default function SmartInput({
   const {
     undo: handleUndo,
     redo: handleRedo,
-    recordHistory,
     canUndo,
     canRedo,
   } = useHistory(content, handleContentChange, {
@@ -332,13 +331,6 @@ export default function SmartInput({
     }, URL_SAVE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [content, todos, activeView, setUrlContent, isLoaded, isControlled]);
-
-  // Record content changes to history (using hook)
-  useEffect(() => {
-    if (content && activeView === "editor") {
-      recordHistory(content);
-    }
-  }, [content, activeView, recordHistory]);
 
   // Auto-save to persistent history (U2)
   const debouncedContent = useDebounce(content, AUTO_SAVE_DELAY_MS);
@@ -489,6 +481,7 @@ export default function SmartInput({
 
   const handleCopyShortcut = () => {
     navigator.clipboard.writeText(content);
+    haptics.success();
     toast.success("Copied to clipboard");
   };
 
@@ -764,6 +757,7 @@ export default function SmartInput({
 
   return (
     <main
+      id="main-content"
       role="main"
       className="flex w-full h-screen bg-white dark:bg-black overflow-hidden font-sans relative"
       {...dragHandlers}

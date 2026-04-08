@@ -1,9 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 interface UseHistoryOptions {
   maxHistorySize?: number;
   onUndo?: () => void;
   onRedo?: () => void;
+  /** Milliseconds to debounce before recording a content change. Default: 400 */
+  debounceMs?: number;
+}
+
+interface HistoryState {
+  entries: string[];
+  index: number;
 }
 
 export function useHistory(
@@ -11,71 +18,101 @@ export function useHistory(
   setContent: (content: string) => void,
   options: UseHistoryOptions = {}
 ) {
-  const { maxHistorySize = 20, onUndo, onRedo } = options;
+  const { maxHistorySize = 20, onUndo, onRedo, debounceMs = 400 } = options;
 
-  const [history, setHistory] = useState<string[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [state, setState] = useState<HistoryState>({
+    entries: [],
+    index: -1,
+  });
 
-  // Record content to history
+  const lastCommittedRef = useRef<string>("");
+
+  // Debounced recording: only commit to history after the user stops typing.
+  // Uses functional setState so the timeout always operates on the latest state.
+  useEffect(() => {
+    if (!content) return;
+
+    const timer = setTimeout(() => {
+      if (content !== lastCommittedRef.current) {
+        lastCommittedRef.current = content;
+
+        setState((prev) => {
+          // Discard future entries if we're not at the tip
+          const base = prev.entries.slice(0, prev.index + 1);
+
+          // Avoid duplicate consecutive entries
+          if (base.length > 0 && base[base.length - 1] === content) {
+            return prev;
+          }
+
+          const newEntries = [...base, content];
+          const trimmed =
+            newEntries.length > maxHistorySize
+              ? newEntries.slice(-maxHistorySize)
+              : newEntries;
+
+          return { entries: trimmed, index: trimmed.length - 1 };
+        });
+      }
+    }, debounceMs);
+
+    return () => clearTimeout(timer);
+  }, [content, debounceMs, maxHistorySize]);
+
+  // Record content to history (immediate — used by programmatic changes like format/minify)
   const recordHistory = useCallback(
     (newContent: string) => {
-      // Don't record if content hasn't changed
-      if (historyIndex >= 0 && history[historyIndex] === newContent) {
-        return;
-      }
+      if (newContent === lastCommittedRef.current) return;
+      lastCommittedRef.current = newContent;
 
-      // Remove any "future" history if user made changes after undoing
-      const newHistory = history.slice(0, historyIndex + 1);
+      setState((prev) => {
+        const base = prev.entries.slice(0, prev.index + 1);
 
-      // Add new state
-      newHistory.push(newContent);
+        if (base.length > 0 && base[base.length - 1] === newContent) {
+          return prev;
+        }
 
-      // Keep only last N states
-      if (newHistory.length > maxHistorySize) {
-        newHistory.shift();
-      } else {
-        setHistoryIndex(historyIndex + 1);
-      }
+        const newEntries = [...base, newContent];
+        const trimmed =
+          newEntries.length > maxHistorySize
+            ? newEntries.slice(-maxHistorySize)
+            : newEntries;
 
-      setHistory(newHistory);
+        return { entries: trimmed, index: trimmed.length - 1 };
+      });
     },
-    [history, historyIndex, maxHistorySize]
+    [maxHistorySize]
   );
 
   // Undo (Ctrl+Z)
   const undo = useCallback(() => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      setContent(history[newIndex]);
+    setState((prev) => {
+      if (prev.index <= 0) return prev;
+      const newIndex = prev.index - 1;
+      setContent(prev.entries[newIndex]);
       onUndo?.();
-    }
-  }, [historyIndex, history, setContent, onUndo]);
+      return { ...prev, index: newIndex };
+    });
+  }, [setContent, onUndo]);
 
   // Redo (Ctrl+Y / Ctrl+Shift+Z)
   const redo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      setContent(history[newIndex]);
+    setState((prev) => {
+      if (prev.index >= prev.entries.length - 1) return prev;
+      const newIndex = prev.index + 1;
+      setContent(prev.entries[newIndex]);
       onRedo?.();
-    }
-  }, [historyIndex, history, setContent, onRedo]);
-
-  // Auto-record content changes
-  useEffect(() => {
-    if (content) {
-      recordHistory(content);
-    }
-  }, [content]);
+      return { ...prev, index: newIndex };
+    });
+  }, [setContent, onRedo]);
 
   return {
-    history,
-    historyIndex,
+    history: state.entries,
+    historyIndex: state.index,
     undo,
     redo,
     recordHistory,
-    canUndo: historyIndex > 0,
-    canRedo: historyIndex < history.length - 1,
+    canUndo: state.index > 0,
+    canRedo: state.index < state.entries.length - 1,
   };
 }

@@ -23,49 +23,46 @@ export type ContentType =
   | "css";
 
 /**
- * Detects the content type of the input string
- * @param content - The content to analyze
- * @returns The detected content type
- * @example
- * ```typescript
- * detectType('{"name": "John"}') // Returns 'json'
- * detectType('/\d+/g') // Returns 'regex'
- * detectType('SELECT * FROM users') // Returns 'sql'
- * ```
+ * Detects the content type of the input string.
+ * Uses prioritized heuristics with specific guards against false positives.
  */
 export function detectType(content: string): ContentType {
   const trimmed = content.trim();
 
   if (!trimmed) return "text";
 
-  // Timestamp Detection (Unix timestamp or ISO 8601)
+  // ── Timestamp Detection ──────────────────────────────────────────────
   // Unix timestamp: 10 digits (seconds) or 13 digits (milliseconds)
-  if (/^\d{10,13}$/.test(trimmed)) {
+  if (/^\d{10}$/.test(trimmed) || /^\d{13}$/.test(trimmed)) {
     return "timestamp";
   }
 
-  // ISO 8601 format (various patterns)
-  // Match: 2021-01-01T00:00:00.000Z, 2021-01-01T00:00:00Z, 2021-01-01T00:00:00+05:30
+  // ISO 8601 format
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(trimmed)) {
     return "timestamp";
   }
 
-  // Base64 Image Detection (data URI scheme)
+  // ── Base64 Image Detection (data URI scheme) ─────────────────────────
   if (trimmed.startsWith("data:image/")) {
     return "base64";
   }
 
-  // IP Address Detection (IPv4)
+  // ── IP Address Detection ─────────────────────────────────────────────
+  // IPv4 — validate each octet is 0-255
   if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(trimmed)) {
-    return "ipaddress";
+    const octets = trimmed.split(".").map(Number);
+    if (octets.every((o) => o >= 0 && o <= 255)) {
+      return "ipaddress";
+    }
   }
 
-  // IP Address Detection (IPv6 - basic pattern)
+  // IPv6
   if (/^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/.test(trimmed)) {
     return "ipaddress";
   }
 
-  // CSV detection (must be before JSON to avoid false positives)
+  // ── CSV Detection ────────────────────────────────────────────────────
+  // Must be before JSON/SQL/YAML to avoid false positives
   if (
     (content.includes(",") || content.includes("\t")) &&
     !trimmed.startsWith("{") &&
@@ -75,7 +72,6 @@ export function detectType(content: string): ContentType {
     if (lines.length > 1) {
       const delimiter = content.includes("\t") ? "\t" : ",";
       const firstRowCols = lines[0].split(delimiter).length;
-      // Check if first few rows have consistent column count (indicates CSV)
       if (firstRowCols > 1) {
         const sampleSize = Math.min(5, lines.length);
         const isConsistent = lines
@@ -88,30 +84,27 @@ export function detectType(content: string): ContentType {
     }
   }
 
-  // GraphQL Detection (must be before JSON to avoid false positives)
+  // ── GraphQL Detection ────────────────────────────────────────────────
+  // Only match if it starts with a GraphQL keyword AND contains braces
+  const graphqlKeywords = ["query", "mutation", "subscription", "fragment"];
+  const firstWord = trimmed.split(/[\s{(]/)[0].toLowerCase();
   if (
-    trimmed.startsWith("query") ||
-    trimmed.startsWith("mutation") ||
-    trimmed.startsWith("subscription") ||
-    trimmed.startsWith("fragment")
+    graphqlKeywords.includes(firstWord) &&
+    trimmed.includes("{") &&
+    trimmed.includes("}")
   ) {
-    // Looks like GraphQL operation
-    if (trimmed.includes("{") && trimmed.includes("}")) {
-      return "graphql";
-    }
+    return "graphql";
   }
 
-  // Also detect anonymous GraphQL queries (starting with {)
+  // Anonymous GraphQL queries: { field(args) { ... } } without colons
   if (trimmed.startsWith("{") && !trimmed.includes(":")) {
-    // GraphQL queries have { field(args) { ... } } pattern without colons
-    // JSON has { "key": "value" } with colons
     const hasGraphQLPattern = /\w+\s*(\([\s\S]*?\))?\s*\{/.test(trimmed);
     if (hasGraphQLPattern) {
       return "graphql";
     }
   }
 
-  // JSON
+  // ── JSON ─────────────────────────────────────────────────────────────
   if (
     (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
     (trimmed.startsWith("[") && trimmed.endsWith("]"))
@@ -120,87 +113,143 @@ export function detectType(content: string): ContentType {
       JSON.parse(trimmed);
       return "json";
     } catch {
-      // ignore
+      // not valid JSON
     }
   }
 
-  // Regex (e.g., /abc/gi)
-  // Must start with /, have another /, and optional flags.
-  // This is a simple heuristic.
+  // ── Regex ────────────────────────────────────────────────────────────
+  // /pattern/flags — must have content between slashes
   if (trimmed.startsWith("/") && trimmed.lastIndexOf("/") > 0) {
     try {
       const lastSlash = trimmed.lastIndexOf("/");
       const pattern = trimmed.slice(1, lastSlash);
       const flags = trimmed.slice(lastSlash + 1);
-      new RegExp(pattern, flags);
-      return "regex";
+      // Validate flags are legitimate regex flags
+      if (/^[gimsuy]*$/.test(flags) && pattern.length > 0) {
+        new RegExp(pattern, flags);
+        return "regex";
+      }
     } catch {
       // invalid regex
     }
   }
 
-  // JWT
+  // ── JWT ──────────────────────────────────────────────────────────────
+  // Three dot-separated segments, where header is valid base64url-encoded JSON
+  // containing "typ":"JWT" or "alg" field
   if (trimmed.split(".").length === 3) {
-    // Basic base64url check for parts
     const parts = trimmed.split(".");
-    // Relaxed check: Just look for 3 parts where the first two look like base64
     if (
       /^[A-Za-z0-9_-]+$/.test(parts[0]) &&
       /^[A-Za-z0-9_-]+$/.test(parts[1])
     ) {
-      return "jwt";
-    }
-  }
-
-  if (/^[a-fA-F0-9]{32,}$/.test(trimmed) && !trimmed.includes(" ")) {
-    return "hash";
-  }
-
-  // Base64 (heuristic: length multiple of 4 or ends with =)
-  // Ensure it's not just a regular word.
-  if (
-    trimmed.length >= 16 && // Lowered from 20 to catch shorter base64 strings
-    /^[A-Za-z0-9+/]*={0,2}$/.test(trimmed) &&
-    !trimmed.includes(" ")
-  ) {
-    // If it is strictly hex characters, it is likely a hash (SHA, MD5) and NOT base64 (which usually has more variety or ends in =)
-    // Unless it explicitly ends in =, it's ambiguous. But 64 chars of just 0-9a-f is almost certainly a SHA.
-    const isHex = /^[0-9a-fA-F]+$/.test(trimmed);
-    if (!isHex) {
-      // Try to decode to verify it's valid base64
       try {
-        const decoded = atob(trimmed);
-        // If decoded successfully and has reasonable content, it's base64
-        if (decoded.length > 0) {
-          return "base64";
+        // Decode the header to verify it looks like a JWT
+        const headerJson = atob(parts[0].replace(/-/g, "+").replace(/_/g, "/"));
+        const header = JSON.parse(headerJson);
+        if (
+          header &&
+          typeof header === "object" &&
+          ("alg" in header || "typ" in header)
+        ) {
+          return "jwt";
         }
       } catch {
-        // ignore - not valid base64
+        // Not a valid JWT header, but still might be
+        // Check if parts[2] (signature) looks like base64url
+        if (/^[A-Za-z0-9_-]+$/.test(parts[2])) {
+          return "jwt";
+        }
       }
     }
   }
 
-  // Markdown Detection (Headers, Lists, Links, Code Blocks)
-  const isMarkdown =
-    /^#{1,6}\s/.test(trimmed) || // Headers 1-6
-    /^\*\s/.test(trimmed) || // Unordered list (asterisk)
-    /^-\s/.test(trimmed) || // Unordered list (dash)
-    /^>\s/.test(trimmed) || // Blockquote
-    /\[.+\]\(.+\)/.test(trimmed) || // Link
-    /```[\s\S]*```/.test(trimmed); // Code block
+  // ── Hash Detection ───────────────────────────────────────────────────
+  // Hex strings of common hash lengths (32=MD5, 40=SHA1, 64=SHA256)
+  if (/^[a-fA-F0-9]+$/.test(trimmed) && !trimmed.includes(" ")) {
+    const len = trimmed.length;
+    if (
+      len === 32 ||
+      len === 40 ||
+      len === 56 ||
+      len === 64 ||
+      len === 96 ||
+      len === 128
+    ) {
+      return "hash";
+    }
+  }
 
-  if (isMarkdown) {
+  // ── Base64 Detection ────────────────────────────────────────────────
+  // Require significant length and no spaces. Must not be purely hex.
+  if (
+    trimmed.length >= 16 &&
+    /^[A-Za-z0-9+/]*={0,2}$/.test(trimmed) &&
+    !trimmed.includes(" ")
+  ) {
+    // If purely hex characters, it's more likely a hash than base64
+    if (/^[0-9a-fA-F]+$/.test(trimmed)) {
+      // Already checked hash lengths above; skip base64 for hex strings
+    } else {
+      try {
+        const decoded = atob(trimmed);
+        // The decoded content should have a reasonable ratio of printable chars
+        // to avoid false positives on random-looking strings
+        if (decoded.length > 0) {
+          const printableRatio =
+            decoded.split("").filter((c) => {
+              const code = c.charCodeAt(0);
+              return (
+                (code >= 32 && code <= 126) ||
+                code === 9 ||
+                code === 10 ||
+                code === 13
+              );
+            }).length / decoded.length;
+          if (printableRatio > 0.5) {
+            return "base64";
+          }
+        }
+      } catch {
+        // not valid base64
+      }
+    }
+  }
+
+  // ── Markdown Detection ──────────────────────────────────────────────
+  // Tightened to reduce false positives on natural language:
+  // - Headers (#) must be at start of line
+  // - Unordered lists require multi-line content or multiple list markers
+  // - Links require brackets then parens immediately
+  // - Code blocks (```) are a strong signal
+  const lines = trimmed.split("\n");
+
+  const hasCodeBlock = /```[\s\S]*```/.test(trimmed);
+  const hasHeader = lines.some((line) => /^#{1,6}\s/.test(line));
+  const hasLink = /\[[^\]]+\]\([^)]+\)/.test(trimmed);
+  const hasBlockquote = lines.some((line) => /^>\s/.test(line));
+  const hasUnorderedList =
+    lines.filter((line) => /^[-*]\s/.test(line)).length >= 2;
+
+  if (
+    hasCodeBlock ||
+    hasHeader ||
+    hasLink ||
+    hasBlockquote ||
+    hasUnorderedList
+  ) {
     return "markdown";
   }
 
-  // UUID (v4 specifically, or generic)
+  // ── UUID Detection ──────────────────────────────────────────────────
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (uuidRegex.test(trimmed)) {
     return "uuid";
   }
 
-  // SQL Detection
+  // ── SQL Detection ───────────────────────────────────────────────────
+  // Tightened: must start with a SQL keyword OR have strong SQL signals
   const sqlCommands = [
     "SELECT ",
     "INSERT INTO ",
@@ -209,15 +258,17 @@ export function detectType(content: string): ContentType {
     "CREATE TABLE ",
     "ALTER TABLE ",
     "DROP TABLE ",
+    "WITH ",
   ];
   const upperTrimmed = trimmed.toUpperCase();
-  // Check if it starts with a common SQL command
+
   if (sqlCommands.some((k) => upperTrimmed.startsWith(k))) {
     return "sql";
   }
 
-  // If it doesn't start with a command, require a higher density of SQL keywords to avoid false positives in natural language
-  const sqlKeywordPairs = [
+  // For non-leading SQL: require BOTH a keyword pair AND SQL punctuation
+  // to distinguish from English text like "select from the menu"
+  const sqlKeywordPairs: Array<[string, string]> = [
     ["SELECT", "FROM"],
     ["INSERT", "INTO"],
     ["UPDATE", "SET"],
@@ -230,17 +281,17 @@ export function detectType(content: string): ContentType {
       new RegExp(`\\b${w2}\\b`, "i").test(trimmed)
   );
 
-  // If it has a SQL pair, make sure it has some SQL syntax like a semicolon or doesn't have markdown list markers
-  if (hasSqlPair && (trimmed.includes(";") || !trimmed.includes("\n- "))) {
-    // Only return SQL if it really looks like SQL (e.g., ends with semicolon or has no natural language paragraph structure)
-    // A simple heuristic: SQL usually has a higher ratio of uppercase keywords or punctuation compared to plain text
-    // We'll return SQL here but be mindful it could still catch some text. The Markdown check above should catch most formatted text.
+  // Strong SQL signals: semicolons, table/column references with dots, parentheses around column lists
+  const hasSqlPunctuation =
+    trimmed.includes(";") ||
+    /\b\w+\.\w+/.test(trimmed) || // table.column references
+    /SELECT\s.+\sFROM\s/i.test(trimmed); // SELECT...FROM pattern with content between
+
+  if (hasSqlPair && hasSqlPunctuation) {
     return "sql";
   }
 
-  // CSS Detection
-  // Look for typical CSS patterns: selector { property: value; }
-  // Avoid confusion with JSON or Objects by ensuring selectors aren't quoted keys
+  // ── CSS Detection ───────────────────────────────────────────────────
   if (
     trimmed.includes("{") &&
     trimmed.includes("}") &&
@@ -256,7 +307,8 @@ export function detectType(content: string): ContentType {
     }
   }
 
-  // Code (Heuristic: Look for keywords or syntax)
+  // ── Code Detection ──────────────────────────────────────────────────
+  // Tightened: require at least 2 code signals (keyword + syntax)
   const codeKeywords = [
     "function",
     "const",
@@ -270,29 +322,19 @@ export function detectType(content: string): ContentType {
     "public ",
     "private ",
     "return ",
-    "if (",
-    "for (",
     "interface ",
     "type ",
     "namespace ",
   ];
-  const hasKeywords = codeKeywords.some((k) => trimmed.includes(k));
-  const hasSyntax =
+  const hasKeyword = codeKeywords.some((k) => trimmed.includes(k));
+  const hasCodeSyntax =
     trimmed.includes(";") || trimmed.includes("{") || trimmed.includes("=>");
 
-  if (hasKeywords && (hasSyntax || !trimmed.includes(" "))) {
-    // Single word might check 'const' if it's "constant" but space check helps? No, strict check.
-    // Actually code usually has spaces.
-  }
-
-  if (
-    hasKeywords &&
-    (trimmed.includes(";") || trimmed.includes("{") || trimmed.includes("("))
-  ) {
+  if (hasKeyword && hasCodeSyntax) {
     return "code";
   }
 
-  // URL Detection
+  // ── URL Detection ───────────────────────────────────────────────────
   const lowerTrimmed = trimmed.toLowerCase();
   if (
     lowerTrimmed.startsWith("http://") ||
@@ -302,12 +344,12 @@ export function detectType(content: string): ContentType {
     lowerTrimmed.startsWith("https%3a") ||
     (trimmed.startsWith("/") &&
       !trimmed.includes("\n") &&
-      !trimmed.includes(" ")) // Basic absolute path
+      !trimmed.includes(" "))
   ) {
     return "url";
   }
 
-  // XML Detection (must be before HTML to avoid false positives)
+  // ── XML Detection ───────────────────────────────────────────────────
   if (
     lowerTrimmed.startsWith("<?xml") ||
     (lowerTrimmed.startsWith("<") &&
@@ -317,25 +359,23 @@ export function detectType(content: string): ContentType {
       !lowerTrimmed.includes("<div") &&
       !lowerTrimmed.includes("<span"))
   ) {
-    // Check for XML patterns like closing tags matching opening tags
     const xmlTagPattern = /<([a-zA-Z][\w:-]*)[^>]*>[\s\S]*<\/\1>/;
     if (xmlTagPattern.test(trimmed) || lowerTrimmed.startsWith("<?xml")) {
       return "xml";
     }
   }
 
-  // HTML Detection
+  // ── HTML Detection ──────────────────────────────────────────────────
   if (
     (lowerTrimmed.startsWith("<") && lowerTrimmed.endsWith(">")) ||
     lowerTrimmed.startsWith("<!doctype html>")
   ) {
-    // Basic check for common tags to distinguish from XML/other
     if (
       lowerTrimmed.includes("<html") ||
       lowerTrimmed.includes("<div") ||
       lowerTrimmed.includes("<span") ||
       lowerTrimmed.includes("<p") ||
-      lowerTrimmed.includes("<a") ||
+      lowerTrimmed.includes("<a ") ||
       lowerTrimmed.includes("<script") ||
       lowerTrimmed.includes("<style") ||
       lowerTrimmed.includes("<!doctype html>")
@@ -344,42 +384,52 @@ export function detectType(content: string): ContentType {
     }
   }
 
-  // (Markdown detection was moved above SQL detection)
+  // ── YAML Detection ──────────────────────────────────────────────────
+  // Tightened: require MULTIPLE yaml indicators, or a document separator
+  // Single "key: value" lines are too easily confused with natural language
+  // ("Name: John" or "color: red")
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    const yamlLines = lines.filter(
+      (line) =>
+        /^[\w-]+\s*:\s.+/.test(line.trim()) && !line.trim().endsWith(";")
+    );
+    const hasSeparator = lines.some((line) => line.trim() === "---");
+    const hasListItems =
+      lines.filter((line) => /^-\s/.test(line.trim())).length >= 2;
 
-  // YAML Detection
-  // Heuristic: looks like key-value pairs or lists, not JSON
-  // If it parses as JSON, it's JSON (handled above).
-  // Key indicators: "key: value", "- item", or "---" start
-  const lines = trimmed.split("\n");
-  const isYaml = lines.some(
-    (line) =>
-      (/^[\w-]+\s*:\s.+/.test(line.trim()) && !line.trim().endsWith(";")) || // key: value, but NOT ending in ; (which is likely TS/JS/CSS)
-      /^-\s/.test(line.trim()) || // - item
-      line.trim() === "---" // document start
-  );
-
-  if (isYaml && !trimmed.startsWith("{") && !trimmed.startsWith("[")) {
-    return "yaml";
+    // Require either: a document separator, or multiple key: value lines,
+    // or key: value + list items together
+    if (
+      hasSeparator ||
+      yamlLines.length >= 2 ||
+      (yamlLines.length >= 1 && hasListItems)
+    ) {
+      return "yaml";
+    }
   }
 
-  // Cron Detection (5 or 6 parts, e.g. * * * * *)
-  // Basic validation: space separated parts, typically numbers, *, /, -, ,
+  // ── Cron Detection ──────────────────────────────────────────────────
+  // Tightened: all 5-6 parts must be valid cron fields
   const cronParts = trimmed.split(/\s+/);
   if (
     cronParts.length >= 5 &&
     cronParts.length <= 6 &&
-    !trimmed.includes("\n") &&
-    /^[0-9*\-,/]+$/.test(cronParts[0]) // First part usually minute/second
+    !trimmed.includes("\n")
   ) {
-    return "cron";
+    // Each part: digits, *, ranges, steps, lists — but no letters (except month/day names)
+    const validCronField = /^[0-9*\-,/]+$/;
+    const allFieldsValid = cronParts.every((part) => validCronField.test(part));
+    if (allFieldsValid) {
+      return "cron";
+    }
   }
 
-  // Color Detection
+  // ── Color Detection ─────────────────────────────────────────────────
   const isHexColor = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(
     trimmed
   );
-  const isRgbColor = trimmed.startsWith("rgb(") || trimmed.startsWith("rgba(");
-  const isHslColor = trimmed.startsWith("hsl(") || trimmed.startsWith("hsla(");
+  const isRgbColor = /^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*/.test(trimmed);
+  const isHslColor = /^hsla?\(\s*\d+\s*,\s*\d+%\s*,\s*\d+%/.test(trimmed);
 
   if (isHexColor || isRgbColor || isHslColor) {
     return "color";

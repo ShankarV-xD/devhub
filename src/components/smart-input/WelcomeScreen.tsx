@@ -79,7 +79,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               Auto-Detection
             </h4>
             <p className="text-[10px] text-zinc-600">
-              Identify 15+ formats instantly
+              Identify 22+ formats instantly
             </p>
           </div>
 
