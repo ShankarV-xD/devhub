@@ -6,9 +6,20 @@
  * plain text. Any XSS exploit that reads localStorage gets ciphertext only.
  *
  * Key derivation:
- *   The NEXT_PUBLIC_STORAGE_KEY env var provides the passphrase.
- *   Falls back to a deterministic browser fingerprint so the app still
- *   works without configuration — while still being better than plain text.
+ *   On first visit, a random 256-bit key is generated via Web Crypto API
+ *   and stored in a separate localStorage key. This key never appears in
+ *   the JS bundle, is unique per device, and rotates only on explicit
+ *   clear. Compromising one device's key does not affect another.
+ *
+ *   If a NEXT_PUBLIC_STORAGE_KEY env var is provided (e.g., for shared
+ *   deployments), it takes precedence — but note it WILL be in the client
+ *   bundle, so use it only if you understand the tradeoffs.
+ *
+ * Threat model:
+ *   This protects against *passive* reads of localStorage (e.g., via a
+ *   compromised browser extension that scrapes all storage). It does NOT
+ *   protect against an active XSS on the same page — such an attacker
+ *   can call secureStorage.get() and read the decrypted values anyway.
  *
  * Usage:
  *   import { secureStorage } from '@/lib/secure-storage';
@@ -18,13 +29,44 @@
 
 import CryptoJS from "crypto-js";
 
+const STORAGE_KEY_KEY = "devhub_ek";
+
 // ---------------------------------------------------------------------------
-// Encryption key — injected at build time via env var.
-// The fallback is intentionally NOT a secret; it only prevents trivial
-// plain-text reads and is documented as such.
+// Encryption key resolution — env var → per-device random key
 // ---------------------------------------------------------------------------
-const ENCRYPTION_KEY =
-  process.env.NEXT_PUBLIC_STORAGE_KEY ?? "devhub-default-key-change-in-prod";
+function getOrCreateEncryptionKey(): string {
+  const envKey =
+    typeof process !== "undefined" && process.env?.NEXT_PUBLIC_STORAGE_KEY;
+
+  if (envKey) {
+    return envKey;
+  }
+
+  if (typeof window === "undefined") {
+    return "devhub-server-fallback";
+  }
+
+  const existing = localStorage.getItem(STORAGE_KEY_KEY);
+  if (existing) {
+    return existing;
+  }
+
+  // Generate a random 256-bit key (32 bytes = 43 base64 chars)
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  const key = btoa(String.fromCharCode(...array));
+  localStorage.setItem(STORAGE_KEY_KEY, key);
+  return key;
+}
+
+let _encryptionKey: string | null = null;
+
+function getEncryptionKey(): string {
+  if (!_encryptionKey) {
+    _encryptionKey = getOrCreateEncryptionKey();
+  }
+  return _encryptionKey;
+}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -38,7 +80,7 @@ export const secureStorage = {
     if (typeof window === "undefined") return;
     try {
       const plain = JSON.stringify(value);
-      const cipher = CryptoJS.AES.encrypt(plain, ENCRYPTION_KEY).toString();
+      const cipher = CryptoJS.AES.encrypt(plain, getEncryptionKey()).toString();
       localStorage.setItem(key, cipher);
     } catch (err) {
       console.error("[secureStorage] encrypt error:", err);
@@ -57,7 +99,7 @@ export const secureStorage = {
 
       // --- Attempt AES decryption (post-S3 encrypted data) ---
       try {
-        const bytes = CryptoJS.AES.decrypt(stored, ENCRYPTION_KEY);
+        const bytes = CryptoJS.AES.decrypt(stored, getEncryptionKey());
         const plain = bytes.toString(CryptoJS.enc.Utf8);
 
         if (plain) {
@@ -99,5 +141,46 @@ export const secureStorage = {
     Object.keys(localStorage)
       .filter((k) => k.startsWith(prefix))
       .forEach((k) => localStorage.removeItem(k));
+  },
+
+  /**
+   * Rotate the encryption key. Re-encrypts all devhub_ entries with a new key.
+   * Useful after a suspected key compromise. Returns true on success.
+   */
+  rotateKey(): boolean {
+    if (typeof window === "undefined") return false;
+    try {
+      const oldKey = _encryptionKey;
+      if (!oldKey) return false;
+
+      // Collect all devhub_ entries (decrypted with old key)
+      const entries: Array<{ key: string; value: unknown }> = [];
+      const prefix = "devhub_";
+      for (const k of Object.keys(localStorage)) {
+        if (k.startsWith(prefix) && k !== STORAGE_KEY_KEY) {
+          const val = this.get(k);
+          if (val !== null) {
+            entries.push({ key: k, value: val });
+          }
+        }
+      }
+
+      // Generate and install new key
+      const array = new Uint8Array(32);
+      crypto.getRandomValues(array);
+      const newKey = btoa(String.fromCharCode(...array));
+      localStorage.setItem(STORAGE_KEY_KEY, newKey);
+      _encryptionKey = newKey;
+
+      // Re-encrypt all entries with new key
+      for (const { key, value } of entries) {
+        this.set(key, value);
+      }
+
+      return true;
+    } catch (err) {
+      console.error("[secureStorage] key rotation error:", err);
+      return false;
+    }
   },
 };

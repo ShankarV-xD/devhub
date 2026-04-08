@@ -4,22 +4,16 @@
  * Single source of truth for all global app state, with:
  *   - devtools middleware for time-travel debugging
  *   - persist middleware for theme + settings across reloads
- *   - History stack (undo/redo) for content changes
- *   - Settings (autoFormat, fontSize, defaultView)
- *   - UI state (sidebar, command palette)
+ *   - Only global/UI state lives here — content and editor state
+ *     are owned by SmartInput and its hooks.
  */
 
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
-import { ContentType } from "@/lib/detector";
-import {
-  HISTORY_MAX_SIZE,
-  STORAGE_KEYS,
-} from "@/lib/constants";
+import { STORAGE_KEYS } from "@/lib/constants";
 
 type Theme = "light" | "dark";
 type ViewMode = "raw" | "tree" | "table";
-type ActiveView = "editor" | "todo" | "api";
 
 // ─────────────────────────────────────────────────────────────────
 // State shape
@@ -32,57 +26,26 @@ interface AppSettings {
 }
 
 interface AppState {
-  // ── Content ───────────────────────────────────────────────────
-  content: string;
-  /** Current detected/forced content type */
-  type: ContentType;
-  /** Alias kept for spec compatibility */
-  detectedType: ContentType;
-  viewMode: ViewMode;
-
-  // ── UI ────────────────────────────────────────────────────────
-  activeView: ActiveView;
-  isDiffMode: boolean;
+  // ── Theme ──────────────────────────────────────────────────────
   theme: Theme;
+
+  // ── UI toggles ─────────────────────────────────────────────────
   isSidebarOpen: boolean;
   isCommandPaletteOpen: boolean;
 
-  // ── History stack (for undo/redo) ─────────────────────────────
-  history: string[];
-  historyIndex: number;
-
-  // ── Settings ──────────────────────────────────────────────────
+  // ── Settings ───────────────────────────────────────────────────
   settings: AppSettings;
 
-  // ── Content actions ───────────────────────────────────────────
-  setContent: (content: string) => void;
-  setType: (type: ContentType) => void;
-  /** Alias kept for spec compatibility */
-  setDetectedType: (type: ContentType) => void;
-  setViewMode: (mode: ViewMode) => void;
-  clearEditor: () => void;
-
-  // ── View actions ──────────────────────────────────────────────
-  setActiveView: (view: ActiveView) => void;
-  setIsDiffMode: (isDiff: boolean) => void;
-
-  // ── Theme actions ─────────────────────────────────────────────
+  // ── Theme actions ──────────────────────────────────────────────
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
 
-  // ── Sidebar / command palette ─────────────────────────────────
+  // ── Sidebar / command palette ───────────────────────────────────
   toggleSidebar: () => void;
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
 
-  // ── History stack actions ─────────────────────────────────────
-  addToHistory: (content: string) => void;
-  undo: () => void;
-  redo: () => void;
-  canUndo: () => boolean;
-  canRedo: () => boolean;
-
-  // ── Settings actions ──────────────────────────────────────────
+  // ── Settings actions ────────────────────────────────────────────
   updateSettings: (settings: Partial<AppSettings>) => void;
 }
 
@@ -96,50 +59,15 @@ export const useAppStore = create<AppState>()(
       (set, get) => ({
         // ── Initial state ──────────────────────────────────────
 
-        content: "",
-        type: "text",
-        detectedType: "text",
-        viewMode: "raw",
-
-        activeView: "editor",
-        isDiffMode: false,
         theme: "dark",
         isSidebarOpen: false,
         isCommandPaletteOpen: false,
 
-        history: [],
-        historyIndex: -1,
-
         settings: {
           autoFormat: false,
           fontSize: 14,
-          defaultView: "raw",
+          defaultView: "raw" as ViewMode,
         },
-
-        // ── Content actions ────────────────────────────────────
-
-        setContent: (content) => set({ content }),
-
-        setType: (type) => set({ type, detectedType: type }),
-
-        setDetectedType: (detectedType) =>
-          set({ detectedType, type: detectedType }),
-
-        setViewMode: (viewMode) => set({ viewMode }),
-
-        clearEditor: () =>
-          set({
-            content: "",
-            type: "text",
-            detectedType: "text",
-            viewMode: "raw",
-          }),
-
-        // ── View actions ───────────────────────────────────────
-
-        setActiveView: (activeView) => set({ activeView }),
-
-        setIsDiffMode: (isDiffMode) => set({ isDiffMode }),
 
         // ── Theme actions ──────────────────────────────────────
 
@@ -169,38 +97,6 @@ export const useAppStore = create<AppState>()(
 
         closeCommandPalette: () => set({ isCommandPaletteOpen: false }),
 
-        // ── History stack ──────────────────────────────────────
-
-        addToHistory: (content: string) => {
-          const { history, historyIndex } = get();
-          // Discard future entries if we're not at the tip
-          const base = history.slice(0, historyIndex + 1);
-          // Avoid duplicate consecutive entries
-          if (base[base.length - 1] === content) return;
-          const newHistory = [...base, content].slice(-HISTORY_MAX_SIZE);
-          set({ history: newHistory, historyIndex: newHistory.length - 1 });
-        },
-
-        undo: () => {
-          const { history, historyIndex } = get();
-          if (historyIndex > 0) {
-            const newIndex = historyIndex - 1;
-            set({ historyIndex: newIndex, content: history[newIndex] });
-          }
-        },
-
-        redo: () => {
-          const { history, historyIndex } = get();
-          if (historyIndex < history.length - 1) {
-            const newIndex = historyIndex + 1;
-            set({ historyIndex: newIndex, content: history[newIndex] });
-          }
-        },
-
-        canUndo: () => get().historyIndex > 0,
-
-        canRedo: () => get().historyIndex < get().history.length - 1,
-
         // ── Settings ───────────────────────────────────────────
 
         updateSettings: (newSettings) =>
@@ -215,11 +111,11 @@ export const useAppStore = create<AppState>()(
           theme: state.theme,
           settings: state.settings,
         }),
-      },
+      }
     ),
     {
       name: "DevHub Store",
       enabled: process.env.NODE_ENV === "development",
-    },
-  ),
+    }
+  )
 );
