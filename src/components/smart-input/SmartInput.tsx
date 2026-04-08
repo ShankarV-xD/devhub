@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { detectType } from "@/lib/detector";
+import { useSwipeable } from "react-swipeable";
+import { haptics } from "@/utils/haptics";
+import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
 import {
   AlertTriangle,
   ArrowDown,
@@ -488,20 +491,45 @@ export default function SmartInput({
     toast.success(`Downloaded as ${filename}`);
   };
 
-  const handleShare = () => {
+  // M6: Upgraded share to use native Web Share API (with URL clipboard fallback)
+  const handleShare = async () => {
     if (!content) {
       toast.error("No content to share");
       return;
     }
 
-    try {
-      // The URL is already being set by useUrlState hook
-      // Just copy the current URL to clipboard
-      const url = window.location.href;
-      navigator.clipboard.writeText(url);
-      toast.success("Shareable link copied to clipboard!");
-    } catch (error) {
-      toast.error("Failed to copy link");
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "DevHub Content",
+          text: content.slice(0, 200),
+          url: window.location.href,
+        });
+        haptics.success();
+        toast.success("Shared successfully!");
+      } catch (error) {
+        // User cancelled — not an error
+        if (error instanceof Error && error.name !== "AbortError") {
+          console.error("Share failed:", error);
+          // Fall through to clipboard fallback
+          try {
+            await navigator.clipboard.writeText(window.location.href);
+            haptics.light();
+            toast.success("Link copied to clipboard!");
+          } catch {
+            toast.error("Failed to share or copy link");
+          }
+        }
+      }
+    } else {
+      // Fallback: copy current URL to clipboard
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        haptics.light();
+        toast.success("Shareable link copied to clipboard!");
+      } catch {
+        toast.error("Failed to copy link");
+      }
     }
   };
 
@@ -646,8 +674,75 @@ export default function SmartInput({
     }
   };
 
+  // ── M3/M4/M5: Mobile hooks — MUST be called before any early returns (Rules of Hooks) ──
+
+  // M3: Keyboard-aware layout
+  const keyboardHeight = useKeyboardHeight();
+
+  // M4: Swipe gestures for JSON view mode tabs
+  const views: Array<"raw" | "tree" | "table"> = ["raw", "tree", "table"];
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      if (type === "json" && parsedJson) {
+        const currentIndex = views.indexOf(viewMode);
+        if (currentIndex < views.length - 1) {
+          handleViewChange(views[currentIndex + 1]);
+          haptics.light();
+        }
+      }
+    },
+    onSwipedRight: () => {
+      if (type === "json" && parsedJson) {
+        const currentIndex = views.indexOf(viewMode);
+        if (currentIndex > 0) {
+          handleViewChange(views[currentIndex - 1]);
+          haptics.light();
+        }
+      }
+    },
+    preventScrollOnSwipe: true,
+    trackMouse: false, // touch only
+  });
+
+  // M5: Pull-to-refresh prevention (JS layer on top of CSS)
+  useEffect(() => {
+    let startY = 0;
+
+    const prevent = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "TEXTAREA" ||
+        target.closest(".editor-container")
+      ) {
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        const currentY = touch.clientY;
+
+        if (e.type === "touchstart") {
+          startY = currentY;
+        } else if (e.type === "touchmove") {
+          const deltaY = currentY - startY;
+          const scrollTop = (target as HTMLElement).scrollTop || 0;
+          // Prevent pull-to-refresh only when at the top of the scroll
+          if (deltaY > 0 && scrollTop === 0) {
+            e.preventDefault();
+          }
+        }
+      }
+    };
+
+    document.addEventListener("touchstart", prevent, { passive: false });
+    document.addEventListener("touchmove", prevent, { passive: false });
+
+    return () => {
+      document.removeEventListener("touchstart", prevent);
+      document.removeEventListener("touchmove", prevent);
+    };
+  }, []);
+
   if (!isLoaded) return null;
 
+  // M2: Haptic feedback on copy
   const handleCopy = () => {
     if (activeView === "todo") {
       const text = todos
@@ -657,6 +752,7 @@ export default function SmartInput({
     } else {
       navigator.clipboard.writeText(content);
     }
+    haptics.success();
     toast.success("Copied to clipboard");
   };
 
@@ -688,7 +784,11 @@ export default function SmartInput({
       />
 
       {/* LEFT PANEL (Input/Editor) - Full width on mobile, 80% on desktop */}
-      <div className="w-full lg:flex-1 lg:min-w-0 h-full flex flex-col p-6 sm:p-8 bg-white dark:bg-black relative">
+      {/* M3: keyboardHeight padding prevents virtual keyboard from hiding content */}
+      <div
+        className="w-full lg:flex-1 lg:min-w-0 h-full flex flex-col p-6 sm:p-8 bg-white dark:bg-black relative editor-container"
+        style={{ paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined }}
+      >
         {/* Header Area */}
         <div className="flex items-center justify-between mb-4 h-8 shrink-0">
           <div
@@ -764,15 +864,16 @@ export default function SmartInput({
             {/* History Button (U2) */}
             <div className="relative">
               <Tooltip text="Recent History">
+                {/* M1: min-w/h-touch ensures ≥44px touch target (WCAG 2.5.5) */}
                 <button
                   onClick={() => setIsHistoryOpen(!isHistoryOpen)}
                   aria-label="Recent History"
                   className={clsx(
-                    "p-1.5 rounded-lg transition-colors hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 cursor-pointer",
+                    "p-2.5 min-w-touch min-h-touch flex items-center justify-center rounded-lg transition-colors hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 cursor-pointer",
                     isHistoryOpen && "bg-zinc-900 text-zinc-400"
                   )}
                 >
-                  <History size={14} />
+                  <History size={16} />
                 </button>
               </Tooltip>
               <HistoryPanel
@@ -789,19 +890,20 @@ export default function SmartInput({
             {/* Undo/Redo */}
             {activeView === "editor" && (
               <div className="flex items-center gap-1 border-r border-zinc-900/50 pr-2 mr-1">
+                {/* M1: Undo/Redo buttons meet 44px touch target */}
                 <Tooltip text="Undo (Ctrl+Z)">
                   <button
                     onClick={handleUndo}
                     disabled={!canUndo}
                     aria-label="Undo"
                     className={clsx(
-                      "p-1.5 rounded-lg transition-colors",
+                      "p-2.5 min-w-touch min-h-touch flex items-center justify-center rounded-lg transition-colors",
                       canUndo
                         ? "hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 cursor-pointer"
                         : "text-zinc-800 cursor-not-allowed opacity-50"
                     )}
                   >
-                    <RotateCcw size={14} />
+                    <RotateCcw size={16} />
                   </button>
                 </Tooltip>
 
@@ -811,27 +913,27 @@ export default function SmartInput({
                     disabled={!canRedo}
                     aria-label="Redo"
                     className={clsx(
-                      "p-1.5 rounded-lg transition-colors",
+                      "p-2.5 min-w-touch min-h-touch flex items-center justify-center rounded-lg transition-colors",
                       canRedo
                         ? "hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 cursor-pointer"
                         : "text-zinc-800 cursor-not-allowed opacity-50"
                     )}
                   >
-                    <RotateCw size={14} />
+                    <RotateCw size={16} />
                   </button>
                 </Tooltip>
               </div>
             )}
 
-            {/* Share Button */}
+            {/* M1 + M6: Share Button — 44px touch target, Web Share API */}
             {content && activeView === "editor" && (
-              <Tooltip text="Share via URL">
+              <Tooltip text="Share content">
                 <button
                   onClick={handleShare}
                   aria-label="Share content"
-                  className="p-1.5 rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
+                  className="p-2.5 min-w-touch min-h-touch flex items-center justify-center rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
                 >
-                  <Globe size={14} />
+                  <Globe size={16} />
                 </button>
               </Tooltip>
             )}
@@ -839,13 +941,14 @@ export default function SmartInput({
             {/* Download Button with Export Options */}
             {content && activeView === "editor" && (
               <div className="relative">
+                {/* M1: Download button meets 44px touch target */}
                 <Tooltip text="Download content (Ctrl+D)">
                   <button
                     onClick={() => setShowExportMenu(!showExportMenu)}
                     aria-label="Download content"
-                    className="p-1.5 rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
+                    className="p-2.5 min-w-touch min-h-touch flex items-center justify-center rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
                   >
-                    <ArrowDown size={14} />
+                    <ArrowDown size={16} />
                   </button>
                 </Tooltip>
 
@@ -905,15 +1008,15 @@ export default function SmartInput({
               </div>
             )}
 
-            {/* Clear Button */}
+            {/* M1 + M2: Clear button — 44px touch target + haptic */}
             {content && activeView === "editor" && (
               <Tooltip text="Clear content (Escape)">
                 <button
-                  onClick={handleClear}
+                  onClick={() => { haptics.medium(); handleClear(); }}
                   aria-label="Clear content"
-                  className="p-1.5 rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
+                  className="p-2.5 min-w-touch min-h-touch flex items-center justify-center rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={16} />
                 </button>
               </Tooltip>
             )}
@@ -1044,6 +1147,7 @@ export default function SmartInput({
                           {!content && activeView === "editor" && (
                             <span className="absolute top-2 block w-0.5 h-10 bg-emerald-500 animate-pulse pointer-events-none" />
                           )}
+                          {/* M3: scrollIntoView on focus ensures input is visible above keyboard */}
                           <textarea
                             ref={textareaRef}
                             value={content}
@@ -1059,6 +1163,15 @@ export default function SmartInput({
                             autoFocus
                             style={{
                               caretColor: content ? "#FBBF24" : "transparent",
+                            }}
+                            onFocus={() => {
+                              // M3: Scroll into view after keyboard animation (~300ms)
+                              setTimeout(() => {
+                                textareaRef.current?.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "center",
+                                });
+                              }, 300);
                             }}
                             onKeyDown={(e) => {
                               if (
@@ -1096,7 +1209,9 @@ export default function SmartInput({
 
                   if (type === "json") {
                     return (
+                      // M4: Swipe left/right to switch JSON view tabs (raw → tree → table)
                       <div
+                        {...swipeHandlers}
                         className={`transition-opacity duration-200 ease-in-out ${isTransitioning ? "opacity-0" : "opacity-100"} h-full w-full`}
                       >
                         <ToolErrorBoundary toolName="JSON Viewer">
@@ -1108,6 +1223,10 @@ export default function SmartInput({
                             {editorElement}
                           </JsonRenderer>
                         </ToolErrorBoundary>
+                        {/* M4: Swipe hint for mobile users */}
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-zinc-700 tracking-wider pointer-events-none md:hidden">
+                          ← Swipe to switch views →
+                        </div>
                       </div>
                     );
                   }

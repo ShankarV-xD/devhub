@@ -89,9 +89,9 @@ export function EditorHeader({
             <button
               onClick={onShare}
               aria-label="Share content"
-              className="p-1.5 rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
+              className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
             >
-              <Share2 size={14} />
+              <Share2 size={16} />
             </button>
           </Tooltip>
         )}
@@ -102,9 +102,9 @@ export function EditorHeader({
             <button
               onClick={onDownload}
               aria-label="Download content"
-              className="p-1.5 rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
+              className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
             >
-              <ArrowDown size={14} />
+              <ArrowDown size={16} />
             </button>
           </Tooltip>
         )}
@@ -115,9 +115,9 @@ export function EditorHeader({
             <button
               onClick={onClear}
               aria-label="Clear content"
-              className="p-1.5 rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
+              className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
             >
-              <Trash2 size={14} />
+              <Trash2 size={16} />
             </button>
           </Tooltip>
         )}

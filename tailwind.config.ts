@@ -29,6 +29,12 @@ const config: Config = {
         popover: "1060",
         tooltip: "1070",
       },
+      minWidth: {
+        touch: "44px", // WCAG 2.5.5 minimum touch target width
+      },
+      minHeight: {
+        touch: "44px", // WCAG 2.5.5 minimum touch target height
+      },
       borderRadius: {
         none: "0",
         sm: "4px", // 0.25rem

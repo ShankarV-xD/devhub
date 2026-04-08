@@ -35,6 +35,47 @@
 
 
 
+/* ── M3: Mobile Viewport Height Fix ─────────────────────────────────────────
+   Prevents the virtual keyboard from hiding content.
+   `-webkit-fill-available` accounts for Safari's dynamic toolbar height.
+   ───────────────────────────────────────────────────────────────────────── */
+html {
+  height: -webkit-fill-available;
+}
+
+body {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* Safe-area insets for notched phones (iPhone X+, Android cutouts) */
+.app-container {
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-top: env(safe-area-inset-top);
+}
+
+/* iOS PWA: ensure the editor area doesn't get obscured by the virtual keyboard */
+@supports (-webkit-touch-callout: none) {
+  .editor-container {
+    height: calc(100vh - env(safe-area-inset-bottom) - 60px);
+  }
+}
+
+/* ── M5: Pull-to-Refresh Prevention ─────────────────────────────────────────
+   Prevents accidental browser pull-to-refresh when scrolling the editor.
+   `overscroll-behavior: contain` stops the scroll chain from propagating
+   to the browser chrome while still allowing the element itself to scroll.
+   ───────────────────────────────────────────────────────────────────────── */
+.editor-container {
+  overscroll-behavior-y: contain;
+}
+
+textarea,
+.scroll-container {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; /* Enables momentum scrolling on iOS */
+}
+
 /* Screen reader only utility (if not provided by Tailwind) */
 .sr-only {
   position: absolute;

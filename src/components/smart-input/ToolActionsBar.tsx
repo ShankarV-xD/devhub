@@ -47,9 +47,9 @@ export function ToolActionsBar({
 
   return (
     <div className="border-t border-zinc-900/50 bg-zinc-950/50">
-      {/* Horizontal scrolling container for tool action buttons */}
+      {/* M1: Horizontal scrolling container — min-h ensures touch-friendly row height */}
       <div className="overflow-x-auto custom-scrollbar">
-        <div className="flex items-center gap-2 px-4 py-3 min-w-max">
+        <div className="flex items-center gap-2 px-4 py-3 min-w-max min-h-[44px]">
           {/* Text Tools — shown in bottom bar like all other types */}
           {type === "text" && setLastTransform && (
             <TextTools

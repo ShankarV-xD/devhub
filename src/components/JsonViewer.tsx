@@ -159,10 +159,11 @@ const Row = ({
         style={{ paddingLeft: `${node.level * 20}px` }}
         className="flex items-center w-full"
       >
+    {/* M1: button meets 44px touch target for row expand/collapse */}
         <button
           onClick={() => isExpandable && toggleExpand(node.path)}
           className={clsx(
-            "w-4 h-4 flex items-center justify-center mr-1 text-zinc-500 hover:text-zinc-300 transition-colors",
+            "w-11 h-11 flex items-center justify-center mr-1 text-zinc-500 hover:text-zinc-300 transition-colors",
             !isExpandable && "opacity-0 cursor-default"
           )}
           aria-expanded={isExpandable ? isExpanded : undefined}
@@ -236,19 +237,20 @@ export default memo(
     return (
       <div className="flex flex-col h-full bg-zinc-950/50 rounded-lg border border-zinc-900 overflow-hidden">
         <div className="flex items-center gap-2 p-2 border-b border-zinc-900 bg-zinc-950">
+          {/* M1: Toolbar buttons meet 44px touch target */}
           <button
             onClick={expandAll}
-            className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+            className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
             title="Expand All"
           >
-            <Maximize2 size={14} />
+            <Maximize2 size={16} />
           </button>
           <button
             onClick={collapseAll}
-            className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+            className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
             title="Collapse All"
           >
-            <Minimize2 size={14} />
+            <Minimize2 size={16} />
           </button>
           <div className="ml-auto text-xs text-zinc-600 font-mono">
             {visibleNodes.length} visible items
