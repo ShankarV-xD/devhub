@@ -1,5 +1,5 @@
 /**
- * Next.js Middleware
+ * Next.js Proxy (formerly Middleware)
  *
  * Runs on every request at the edge (before pages/API routes).
  *
@@ -12,7 +12,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // ── S4: HTTPS enforcement ─────────────────────────────────────────────────
   // Only enforce in production — dev always runs on HTTP localhost.
   if (process.env.NODE_ENV === "production") {
@@ -70,7 +70,8 @@ function buildCSP(nonce: string): string {
     style-src
       'self'
       'unsafe-inline'
-      https://fonts.googleapis.com;
+      https://fonts.googleapis.com
+      https://cdn.jsdelivr.net;
 
     font-src
       'self'

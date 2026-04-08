@@ -4,6 +4,7 @@ import { MobileSidebar } from "../MobileSidebar";
 import ToolButton from "./ToolButton";
 import { GlobalToolbar } from "./GlobalToolbar";
 import { Todo } from "../TodoTool";
+import { ContentType } from "@/lib/detector";
 
 interface ToolsSidebarProps {
   isMobileMenuOpen: boolean;
@@ -14,15 +15,15 @@ interface ToolsSidebarProps {
   content: string;
   setContent: (value: string) => void;
   setViewMode: (mode: "raw" | "tree" | "table") => void;
-  setLastTransform: (val: any) => void;
-  setType: (type: any) => void;
+  setLastTransform: (val: { type: string; original: string } | null) => void;
+  setType: (type: ContentType) => void;
   isDiffMode: boolean;
   setIsDiffMode: (val: boolean) => void;
   setDiffOriginal: (val: string) => void;
   handleCopy: () => void;
   handleClear: () => void;
-  setJwtOriginal: (val: any) => void;
-  jwtOriginal: any;
+  setJwtOriginal: (val: string | null) => void;
+  jwtOriginal: string | null;
   setIsPreviewMode: (val: boolean) => void;
   onOpenEncryption?: () => void;
   onOpenTemplates?: () => void;
@@ -43,6 +44,7 @@ export const ToolsSidebar: React.FC<ToolsSidebarProps> = ({
   handleCopy,
   handleClear,
   setJwtOriginal,
+  setType,
   setIsPreviewMode,
   onOpenEncryption,
   onOpenTemplates,
@@ -105,6 +107,7 @@ export const ToolsSidebar: React.FC<ToolsSidebarProps> = ({
           onOpenEncryption={onOpenEncryption}
           onOpenTemplates={onOpenTemplates}
           searchTerm=""
+          setType={setType}
         />
       </aside>
     </MobileSidebar>

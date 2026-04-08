@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Wand2, ChevronDown } from "lucide-react";
+import React, { useState, useCallback } from "react";
+import { Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import ToolButton from "../ToolButton";
 
@@ -22,57 +22,70 @@ const LANGUAGES = [
   { id: "cpp", label: "C++ ✦" },
 ];
 
+// Detect language based on code heuristics
+function detectLanguage(content: string): string | null {
+  if (!content) return null;
+
+  const isTypeScript =
+    /:\s*(string|number|boolean|any|void|unknown|never)\b/.test(content) ||
+    /\b(interface|type)\s+\w+/.test(content) ||
+    /<\w+(,\s*\w+)*>/.test(content) ||
+    /\b(public|private|protected|readonly)\b/.test(content);
+
+  const isPython =
+    /^\s*def\s+\w+\s*\(/m.test(content) ||
+    /^\s*import\s+\w+/m.test(content) ||
+    /^\s*from\s+\w+\s+import/m.test(content) ||
+    /^\s*class\s+\w+(\s*\(.*\))?:/m.test(content);
+
+  const isRust =
+    /^\s*fn\s+\w+\s*\(/m.test(content) ||
+    /\blet\s+mut\b/.test(content) ||
+    /\bimpl\b/.test(content);
+
+  const isGo =
+    /^\s*func\s+\w+\s*\(/m.test(content) ||
+    /\bpackage\s+main\b/.test(content) ||
+    /\bfmt\./.test(content);
+
+  const isJava =
+    /\bpublic\s+(class|interface|enum)\b/.test(content) ||
+    /\bSystem\.out\.print/.test(content) ||
+    /\b@Override\b/.test(content);
+
+  if (isPython) return "python";
+  if (isRust) return "rust";
+  if (isGo) return "go";
+  if (isJava) return "java";
+  if (isTypeScript) return "typescript";
+  return null;
+}
+
 export const CodeTools: React.FC<CodeToolsProps> = ({
   content,
   setContent,
 }) => {
   const [isFormatting, setIsFormatting] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState("javascript");
-  const [hasManuallyChangedLang, setHasManuallyChangedLang] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState(() => {
+    // Initialize with detected language
+    return detectLanguage(content) ?? "javascript";
+  });
 
-  // Auto-detect language based on code heuristics
-  useEffect(() => {
-    if (!hasManuallyChangedLang && content) {
-      const isTypeScript =
-        /:\s*(string|number|boolean|any|void|unknown|never)\b/.test(content) ||
-        /\b(interface|type)\s+\w+/.test(content) ||
-        /<\w+(,\s*\w+)*>/.test(content) ||
-        /\b(public|private|protected|readonly)\b/.test(content);
-
-      const isPython =
-        /^\s*def\s+\w+\s*\(/m.test(content) ||
-        /^\s*import\s+\w+/m.test(content) ||
-        /^\s*from\s+\w+\s+import/m.test(content) ||
-        /^\s*class\s+\w+(\s*\(.*\))?:/m.test(content);
-
-      const isRust =
-        /^\s*fn\s+\w+\s*\(/m.test(content) ||
-        /\blet\s+mut\b/.test(content) ||
-        /\bimpl\b/.test(content);
-
-      const isGo =
-        /^\s*func\s+\w+\s*\(/m.test(content) ||
-        /\bpackage\s+main\b/.test(content) ||
-        /\bfmt\./.test(content);
-
-      const isJava =
-        /\bpublic\s+(class|interface|enum)\b/.test(content) ||
-        /\bSystem\.out\.print/.test(content) ||
-        /\b@Override\b/.test(content);
-
-      if (isPython && selectedLanguage === "javascript") {
-        setSelectedLanguage("python");
-      } else if (isRust && selectedLanguage === "javascript") {
-        setSelectedLanguage("rust");
-      } else if (isGo && selectedLanguage === "javascript") {
-        setSelectedLanguage("go");
-      } else if (isJava && selectedLanguage === "javascript") {
-        setSelectedLanguage("java");
-      } else if (isTypeScript && selectedLanguage === "javascript") {
-        setSelectedLanguage("typescript");
-      }
+  // Update language when content changes significantly (only from "javascript" to something else)
+  const handleContentChange = useCallback(() => {
+    const detected = detectLanguage(content);
+    if (detected && selectedLanguage === "javascript") {
+      setSelectedLanguage(detected);
     }
-  }, [content, hasManuallyChangedLang, selectedLanguage]);
+  }, [content, selectedLanguage]);
+
+  // Run detection on content change using requestAnimationFrame to avoid setState during render
+  React.useLayoutEffect(() => {
+    const frameId = requestAnimationFrame(() => {
+      handleContentChange();
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [handleContentChange]);
 
   const handleFormat = () => {
     if (isFormatting) return;
@@ -120,32 +133,13 @@ export const CodeTools: React.FC<CodeToolsProps> = ({
 
   return (
     <div className="flex flex-wrap items-center gap-2 animate-in slide-in-from-right-4 duration-300">
-      <div className="flex items-center gap-2 pl-2 pr-1 py-1 bg-zinc-900/50 border border-zinc-800 rounded-lg h-8 shadow-sm">
-        <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold flex items-center pr-1 border-r border-zinc-800 h-full">
-          Lang
-        </span>
-        <div className="relative flex items-center group h-full">
-          <select
-            value={selectedLanguage}
-            onChange={(e) => {
-              setSelectedLanguage(e.target.value);
-              setHasManuallyChangedLang(true);
-            }}
-            className="appearance-none bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded py-0.5 pl-2 pr-6 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all cursor-pointer h-full"
-          >
-            {LANGUAGES.map((lang) => (
-              <option key={lang.id} value={lang.id}>
-                {lang.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-1.5 w-3 h-3 text-zinc-500 pointer-events-none group-hover:text-zinc-300 transition-colors" />
-        </div>
-      </div>
-
       <ToolButton
         icon={<Wand2 size={16} />}
-        label={isFormatting ? "Formatting..." : "Format Code"}
+        label={
+          isFormatting
+            ? "Formatting..."
+            : `Format ${LANGUAGES.find((l) => l.id === selectedLanguage)?.label.replace(" ✦", "") || "Code"}`
+        }
         onClick={handleFormat}
       />
     </div>

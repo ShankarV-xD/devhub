@@ -97,6 +97,14 @@ export function useDetection(
     if (!content || !debouncedContent) return;
 
     const newType = detectType(debouncedContent);
+
+    // UI Stickiness: Prevent rigid, single-line tools from violently
+    // switching to 'text' during minor backspaces/editing.
+    const stickyTypes: ContentType[] = ["cron", "color"];
+    if (stickyTypes.includes(type) && newType === "text") {
+      return;
+    }
+
     applyType(newType);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedContent]);

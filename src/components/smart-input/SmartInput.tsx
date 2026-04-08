@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { detectType } from "@/lib/detector";
 import { useSwipeable } from "react-swipeable";
@@ -32,6 +32,7 @@ import {
   Key,
   Clock,
   Sparkles,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
@@ -41,6 +42,7 @@ import { addToHistory } from "@/lib/history";
 import { HistoryPanel } from "./HistoryPanel";
 import { CommandPalette } from "./CommandPalette";
 import { ShortcutsDialog } from "./ShortcutsDialog";
+import { AboutModal } from "./AboutModal";
 // Heavy libraries are lazy-loaded now: sql-formatter, yaml
 
 import {
@@ -174,10 +176,13 @@ export default function SmartInput({
   );
 
   // Sync content updates
-  const handleContentChange = (newContent: string) => {
-    setContent(newContent);
-    onContentChange?.(newContent);
-  };
+  const handleContentChange = useCallback(
+    (newContent: string) => {
+      setContent(newContent);
+      onContentChange?.(newContent);
+    },
+    [onContentChange]
+  );
 
   // View Mode Transition State (D5)
   type ViewMode = "raw" | "tree" | "table";
@@ -211,6 +216,7 @@ export default function SmartInput({
   const [isShortcutsDialogOpen, setIsShortcutsDialogOpen] = useState(false);
   const [isEncryptionOpen, setIsEncryptionOpen] = useState(false);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   // Reversibility State
   const [lastTransform, setLastTransform] = useState<{
@@ -220,7 +226,9 @@ export default function SmartInput({
   const [jwtOriginal, setJwtOriginal] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<{
+    focus: () => void;
+  } | null>(null);
 
   // ===== EXTRACTED HOOKS =====
 
@@ -290,7 +298,7 @@ export default function SmartInput({
         setActiveView("editor");
       }
     }
-  }, [isLoaded, urlContent, isControlled]);
+  }, [isLoaded, urlContent, isControlled, handleContentChange]);
 
   useEffect(() => {
     if (content) {
@@ -323,7 +331,7 @@ export default function SmartInput({
       }
     }, URL_SAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [content, todos, activeView, setUrlContent, isLoaded]);
+  }, [content, todos, activeView, setUrlContent, isLoaded, isControlled]);
 
   // Record content changes to history (using hook)
   useEffect(() => {
@@ -404,9 +412,9 @@ export default function SmartInput({
       {
         loading: "Formatting SQL...",
         success: (msg) => msg,
-        error: (error: any) => {
+        error: (error: unknown) => {
           let errorMsg = "Invalid SQL";
-          if (error?.message) {
+          if (error instanceof Error && error?.message) {
             const lineMatch = error.message.match(/line (\d+)/i);
             if (lineMatch) {
               errorMsg = `SQL Error at Line ${lineMatch[1]}`;
@@ -507,7 +515,7 @@ export default function SmartInput({
         });
         haptics.success();
         toast.success("Shared successfully!");
-      } catch (error) {
+      } catch (error: unknown) {
         // User cancelled — not an error
         if (error instanceof Error && error.name !== "AbortError") {
           console.error("Share failed:", error);
@@ -552,7 +560,7 @@ export default function SmartInput({
 
   // File Drop Hook
   const { isDragging, dragHandlers } = useFileDrop({
-    onFileLoad: (txt, _filename) => {
+    onFileLoad: (txt) => {
       handleContentChange(txt);
       // Auto-focus after drop
       setTimeout(() => {
@@ -740,8 +748,6 @@ export default function SmartInput({
     };
   }, []);
 
-  if (!isLoaded) return null;
-
   // M2: Haptic feedback on copy
   const handleCopy = () => {
     if (activeView === "todo") {
@@ -763,7 +769,7 @@ export default function SmartInput({
       {...dragHandlers}
     >
       {isDragging && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm border-2 border-dashed border-emerald-500 m-4 rounded-xl animate-in fade-in duration-200 pointer-events-none">
+        <div className="absolute inset-0 z-100 flex items-center justify-center bg-black/80 backdrop-blur-sm border-2 border-dashed border-emerald-500 m-4 rounded-xl animate-in fade-in duration-200 pointer-events-none">
           <div className="text-center">
             <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
               <Upload className="w-10 h-10 text-emerald-500" />
@@ -787,7 +793,9 @@ export default function SmartInput({
       {/* M3: keyboardHeight padding prevents virtual keyboard from hiding content */}
       <div
         className="w-full lg:flex-1 lg:min-w-0 h-full flex flex-col p-6 sm:p-8 bg-white dark:bg-black relative editor-container"
-        style={{ paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined }}
+        style={{
+          paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined,
+        }}
       >
         {/* Header Area */}
         <div className="flex items-center justify-between mb-4 h-8 shrink-0">
@@ -806,7 +814,8 @@ export default function SmartInput({
                 TYPE_ICONS[type as keyof typeof TYPE_ICONS] && (
                   <div className="text-zinc-500">
                     {(() => {
-                      const Icon = TYPE_ICONS[type as keyof typeof TYPE_ICONS];
+                      const Icon: React.ElementType =
+                        TYPE_ICONS[type as keyof typeof TYPE_ICONS];
                       return <Icon size={14} />;
                     })()}
                   </div>
@@ -1012,7 +1021,10 @@ export default function SmartInput({
             {content && activeView === "editor" && (
               <Tooltip text="Clear content (Escape)">
                 <button
-                  onClick={() => { haptics.medium(); handleClear(); }}
+                  onClick={() => {
+                    haptics.medium();
+                    handleClear();
+                  }}
                   aria-label="Clear content"
                   className="p-2.5 min-w-touch min-h-touch flex items-center justify-center rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
                 >
@@ -1104,7 +1116,7 @@ export default function SmartInput({
                           onMount={(editor) => {
                             editorRef.current = editor;
                           }}
-                          beforeMount={(monaco: any) => {
+                          beforeMount={(monaco) => {
                             monaco.editor.defineTheme("devhub-dark", {
                               base: "vs-dark",
                               inherit: true,
@@ -1163,15 +1175,6 @@ export default function SmartInput({
                             autoFocus
                             style={{
                               caretColor: content ? "#FBBF24" : "transparent",
-                            }}
-                            onFocus={() => {
-                              // M3: Scroll into view after keyboard animation (~300ms)
-                              setTimeout(() => {
-                                textareaRef.current?.scrollIntoView({
-                                  behavior: "smooth",
-                                  block: "center",
-                                });
-                              }, 300);
                             }}
                             onKeyDown={(e) => {
                               if (
@@ -1328,14 +1331,30 @@ export default function SmartInput({
         )}
 
         {/* Tool Description Footer */}
-        <div className="h-auto min-h-[40px] px-1 py-1 border-t border-zinc-900/50 text-xs text-zinc-500 font-medium flex items-center shrink-0">
-          {activeView === "todo"
-            ? TOOL_DESCRIPTIONS["todo"]
-            : activeView === "api"
-              ? "API Request Builder - Send HTTP requests, view responses, and manage your API testing workflow."
-              : isDiffMode
-                ? TOOL_DESCRIPTIONS["diff"]
-                : TOOL_DESCRIPTIONS[type] || TOOL_DESCRIPTIONS["text"]}
+        <div className="h-auto min-h-[40px] px-1 py-1 border-t border-zinc-900/50 text-xs text-zinc-500 font-medium flex items-center justify-between shrink-0">
+          <div>
+            {activeView === "todo"
+              ? TOOL_DESCRIPTIONS["todo"]
+              : activeView === "api"
+                ? "API Request Builder - Send HTTP requests, view responses, and manage your API testing workflow."
+                : isDiffMode
+                  ? TOOL_DESCRIPTIONS["diff"]
+                  : TOOL_DESCRIPTIONS[type] || TOOL_DESCRIPTIONS["text"]}
+          </div>
+          <div className="flex items-center gap-4 text-zinc-600 pl-4 whitespace-nowrap">
+            <button
+              onClick={() => setIsAboutOpen(true)}
+              className="hover:text-zinc-300 transition-colors flex items-center gap-1.5 cursor-pointer outline-none"
+            >
+              <Info size={14} /> Guide
+            </button>
+            <span className="hidden sm:inline border-l border-zinc-800 pl-4">
+              Developed by{" "}
+              <span className="text-zinc-400 font-semibold tracking-wide">
+                Shankar
+              </span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -1375,7 +1394,7 @@ export default function SmartInput({
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         onCommand={handleCommand}
-        currentType={type as any}
+        currentType={type}
       />
       <ShortcutsDialog
         isOpen={isShortcutsDialogOpen}
@@ -1392,6 +1411,7 @@ export default function SmartInput({
         onLoad={handleContentChange}
         currentContent={content}
       />
+      <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
     </main>
   );
 }

@@ -24,11 +24,11 @@ interface ToolActionsBarProps {
   content: string;
   setContent: (value: string) => void;
   setViewMode?: (mode: "raw" | "tree" | "table") => void;
-  setLastTransform?: (val: any) => void;
-  lastTransform?: any;
-  setType?: (type: any) => void;
-  jwtOriginal?: any;
-  setJwtOriginal?: (val: any) => void;
+  setLastTransform?: (val: { type: string; original: string } | null) => void;
+  lastTransform?: { type: string; original: string } | null;
+  setType?: (type: ContentType) => void;
+  jwtOriginal?: string | null;
+  setJwtOriginal?: (val: string | null) => void;
 }
 
 export function ToolActionsBar({
@@ -170,7 +170,7 @@ export function ToolActionsBar({
 
           {/* JWT Tools */}
           {type === "jwt" && setJwtOriginal && (
-            <>
+            <div className="flex items-center gap-2">
               <ToolButton
                 icon={<Key size={16} />}
                 label={jwtOriginal ? "Encode Payload" : "Decode Payload"}
@@ -226,7 +226,7 @@ export function ToolActionsBar({
                   />
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {/* Regex Tools */}

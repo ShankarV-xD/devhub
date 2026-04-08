@@ -19,7 +19,7 @@ import {
   Clock,
   ScrollText,
   Globe,
-  Image,
+  Image as ImageIcon,
   Lock,
   BookMarked,
 } from "lucide-react";
@@ -29,6 +29,7 @@ import { TOOLS } from "@/lib/examples";
 import { HashAlgorithm } from "@/lib/generators";
 import ToolButton from "./ToolButton";
 import { Logo } from "../Logo";
+import { ContentType } from "@/lib/detector";
 
 interface GlobalToolbarProps {
   content: string;
@@ -40,12 +41,13 @@ interface GlobalToolbarProps {
   setDiffOriginal: (value: string) => void;
   handleCopy: () => void;
   handleClear: () => void;
-  setLastTransform: (val: any) => void;
-  setJwtOriginal: (val: any) => void;
+  setLastTransform: (val: { type: string; original: string } | null) => void;
+  setJwtOriginal: (val: string | null) => void;
   setIsPreviewMode: (val: boolean) => void;
   onOpenEncryption?: () => void;
   onOpenTemplates?: () => void;
   searchTerm?: string;
+  setType?: (type: ContentType) => void;
 }
 
 export const GlobalToolbar: React.FC<GlobalToolbarProps> = ({
@@ -64,6 +66,7 @@ export const GlobalToolbar: React.FC<GlobalToolbarProps> = ({
   onOpenEncryption,
   onOpenTemplates,
   searchTerm = "",
+  setType,
 }) => {
   const [hashes, setHashes] = useState<Record<HashAlgorithm, string>>(
     {} as Record<HashAlgorithm, string>
@@ -77,6 +80,9 @@ export const GlobalToolbar: React.FC<GlobalToolbarProps> = ({
     const newContent = TOOLS[exType];
     setActiveView("editor");
     setContent(newContent);
+    if (setType) {
+      setType(exType as ContentType);
+    }
 
     setLastTransform(null);
     setJwtOriginal(null);
@@ -169,7 +175,7 @@ export const GlobalToolbar: React.FC<GlobalToolbarProps> = ({
             { id: "xml", icon: <Braces size={16} />, label: "XML" },
             { id: "css", icon: <Brush size={16} />, label: "CSS" },
             { id: "csv", icon: <FileSpreadsheet size={16} />, label: "CSV" },
-            { id: "image", icon: <Image size={16} />, label: "Image" },
+            { id: "image", icon: <ImageIcon size={16} />, label: "Image" },
           ]
             .filter((ex) => filter(ex.label))
             .map((ex) => (
@@ -177,6 +183,7 @@ export const GlobalToolbar: React.FC<GlobalToolbarProps> = ({
                 <button
                   onClick={() => loadExample(ex.id as keyof typeof TOOLS)}
                   className="cursor-pointer flex items-center justify-center px-2 py-2 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded text-xs text-zinc-400 hover:text-white transition-colors w-full"
+                  aria-label={ex.label}
                 >
                   {ex.icon}
                 </button>

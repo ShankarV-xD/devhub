@@ -1,5 +1,5 @@
 import React from "react";
-import { FileJson, Key, Code2 } from "lucide-react";
+import { FileJson, Key, Code2, Link2 } from "lucide-react";
 
 interface WelcomeScreenProps {
   onLoadExample?: (type: "json" | "jwt" | "sql") => void;
@@ -65,6 +65,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             </button>
           </div>
         )}
+
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-xs mb-6 shadow-lg shadow-emerald-500/5">
+          <Link2 className="w-3.5 h-3.5" />
+          <span>Everything lives in the URL. Share instantly.</span>
+        </div>
 
         {/* Features Specs */}
         <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-left max-w-sm w-full border-t border-zinc-800/50 pt-6 opacity-70">

@@ -15,7 +15,7 @@
     color: var(--foreground);
     @apply font-sans antialiased selection:bg-emerald-500/30 selection:text-emerald-500;
   }
-  
+
   h1 {
     @apply text-3xl font-bold tracking-tight lg:text-4xl;
   }
@@ -33,19 +33,21 @@
   }
 }
 
-
-
 /* ── M3: Mobile Viewport Height Fix ─────────────────────────────────────────
    Prevents the virtual keyboard from hiding content.
    `-webkit-fill-available` accounts for Safari's dynamic toolbar height.
    ───────────────────────────────────────────────────────────────────────── */
-html {
-  height: -webkit-fill-available;
-}
-
 body {
   min-height: 100vh;
-  min-height: -webkit-fill-available;
+}
+
+@supports (-webkit-touch-callout: none) {
+  html {
+    height: -webkit-fill-available;
+  }
+  body {
+    min-height: -webkit-fill-available;
+  }
 }
 
 /* Safe-area insets for notched phones (iPhone X+, Android cutouts) */

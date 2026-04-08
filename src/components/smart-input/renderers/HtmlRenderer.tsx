@@ -45,11 +45,19 @@ export function HtmlRenderer({
 
       {/* Preview or Code */}
       {isPreviewMode ? (
-        <div className="flex-1 relative overflow-hidden bg-black rounded-lg border border-zinc-900">
-          <div className="absolute inset-0 overflow-auto custom-scrollbar p-8 text-zinc-100">
+        <div
+          className="flex-1 relative overflow-hidden rounded-lg border border-zinc-900/50"
+          style={{
+            backgroundColor: "#09090b",
+            backgroundImage: "radial-gradient(#27272a 1px, transparent 1px)",
+            backgroundSize: "24px 24px",
+          }}
+        >
+          <div className="absolute inset-0 overflow-auto custom-scrollbar p-8">
             <div
+              className="prose prose-sm md:prose-base prose-invert max-w-none"
               dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(content),
+                __html: DOMPurify.sanitize(content, { FORCE_BODY: true }),
               }}
             />
           </div>

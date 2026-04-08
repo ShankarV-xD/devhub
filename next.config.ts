@@ -1,17 +1,18 @@
 import type { NextConfig } from "next";
+import createBundleAnalyzer from "@next/bundle-analyzer";
 
-const withBundleAnalyzer = require("@next/bundle-analyzer")({
+const withBundleAnalyzer = createBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
 
 // ── S1: Content Security Policy ───────────────────────────────────────────────
 // This is the static fallback CSP (no nonce) applied via next.config headers.
-// The middleware.ts adds a stricter nonce-based CSP on every live request.
+// The proxy.ts adds a stricter nonce-based CSP on every live request.
 // Both layers work together.
 const ContentSecurityPolicy = `
   default-src 'self';
   script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
   font-src 'self' https://fonts.gstatic.com;
   img-src 'self' data: blob: https:;
   connect-src 'self' https://us.i.posthog.com https://api.tinyurl.com;
@@ -82,11 +83,13 @@ const nextConfig: NextConfig = {
   },
 };
 
-const withPWA = require("next-pwa")({
+import withPWA from "next-pwa";
+
+const pwaConfig = withPWA({
   dest: "public",
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
 });
 
-export default withBundleAnalyzer(withPWA(nextConfig));
+export default withBundleAnalyzer(pwaConfig(nextConfig));
