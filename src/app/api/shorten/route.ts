@@ -1,8 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 
+/**
+ * S2: Server-side rate limiter for URL shortening.
+ * 20 requests / minute per IP — enough for legitimate use,
+ * prevents bulk URL shortening abuse.
+ */
+const shortenRateMap = new Map<string, number[]>();
+const SHORTEN_MAX = 20;
+const SHORTEN_WINDOW_MS = 60_000;
+
+function isShortenRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const hits = (shortenRateMap.get(ip) ?? []).filter(
+    (t) => now - t < SHORTEN_WINDOW_MS
+  );
+  if (hits.length >= SHORTEN_MAX) return true;
+  hits.push(now);
+  shortenRateMap.set(ip, hits);
+  return false;
+}
+
 export async function GET(request: NextRequest) {
+  // S2: Rate limit by IP
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    request.headers.get("x-real-ip") ??
+    "unknown";
+
+  if (isShortenRateLimited(ip)) {
+    return NextResponse.json(
+      { error: "Too many requests — please wait a moment before retrying." },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const url = searchParams.get("url");
+
 
   if (!url) {
     return NextResponse.json({ error: "URL is required" }, { status: 400 });

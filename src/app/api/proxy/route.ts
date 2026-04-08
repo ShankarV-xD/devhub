@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
+ * S2: Server-side in-memory rate limiter.
+ * Limits each IP to 30 proxy requests per minute — enough for normal
+ * API builder usage while preventing abuse.
+ */
+const proxyRateMap = new Map<string, number[]>();
+const PROXY_MAX = 30;
+const PROXY_WINDOW_MS = 60_000;
+
+function isProxyRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const hits = (proxyRateMap.get(ip) ?? []).filter(
+    (t) => now - t < PROXY_WINDOW_MS
+  );
+  if (hits.length >= PROXY_MAX) return true;
+  hits.push(now);
+  proxyRateMap.set(ip, hits);
+  return false;
+}
+
+/**
  * Server-side proxy for the API Request Builder.
  *
  * WHY THIS EXISTS:
@@ -23,6 +43,19 @@ import { NextRequest, NextResponse } from "next/server";
  */
 
 export async function POST(req: NextRequest) {
+  // S2: Rate limit by IP
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown";
+
+  if (isProxyRateLimited(ip)) {
+    return NextResponse.json(
+      { error: "Too many requests — please wait a moment before retrying." },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   let payload: {
     url: string;
     method: string;
