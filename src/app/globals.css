@@ -1,0 +1,105 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #0a0a0a;
+  }
+  .dark {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    @apply font-sans antialiased selection:bg-emerald-500/30 selection:text-emerald-500;
+  }
+  
+  h1 {
+    @apply text-3xl font-bold tracking-tight lg:text-4xl;
+  }
+  h2 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+  h3 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+  h4 {
+    @apply text-lg font-semibold tracking-tight;
+  }
+  p {
+    @apply leading-7;
+  }
+}
+
+
+
+/* Screen reader only utility (if not provided by Tailwind) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  /* Firefox scrollbar support */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #333 transparent;
+  }
+
+  /* Webkit browsers (Chrome, Safari, Edge) */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #444;
+  }
+
+  /* Monaco Editor Scrollbar Overrides */
+  .monaco-scrollable-element > .scrollbar > .slider {
+    background: #333 !important;
+    border-radius: 4px !important;
+  }
+  .monaco-scrollable-element > .scrollbar > .slider:hover {
+    background: #444 !important;
+  }
+  .monaco-scrollable-element > .scrollbar.vertical {
+    width: 6px !important;
+  }
+  .monaco-scrollable-element > .scrollbar.horizontal {
+    height: 3px !important;
+  }
+}

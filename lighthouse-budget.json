@@ -1,0 +1,52 @@
+{
+  "resourceSizes": [
+    {
+      "resourceType": "document",
+      "budget": 15000
+    },
+    {
+      "resourceType": "script",
+      "budget": 200000
+    },
+    {
+      "resourceType": "total",
+      "budget": 500000
+    },
+    {
+      "resourceType": "stylesheet",
+      "budget": 50000
+    }
+  ],
+  "resourceCounts": [
+    {
+      "resourceType": "script",
+      "budget": 10
+    },
+    {
+      "resourceType": "total",
+      "budget": 20
+    },
+    {
+      "resourceType": "stylesheet",
+      "budget": 3
+    }
+  ],
+  "timings": [
+    {
+      "metric": "interactive",
+      "budget": 3000
+    },
+    {
+      "metric": "first-meaningful-paint",
+      "budget": 1500
+    },
+    {
+      "metric": "speed-index",
+      "budget": 2000
+    },
+    {
+      "metric": "first-cpu-idle",
+      "budget": 2000
+    }
+  ]
+}
