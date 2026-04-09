@@ -1,1 +1,1 @@
-pnpm test --run --passWithNoTests
+pnpm test -- --run --passWithNoTests
