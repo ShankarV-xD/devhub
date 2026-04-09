@@ -54,6 +54,13 @@ body {
 .app-container {
   padding-bottom: env(safe-area-inset-bottom);
   padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Safe-area bottom padding for fixed elements on notched phones */
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
 }
 
 /* iOS PWA: ensure the editor area doesn't get obscured by the virtual keyboard */
@@ -106,6 +113,17 @@ textarea,
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Visible focus indicators for keyboard navigation */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-emerald-500;
+  }
+
+  /* Remove default focus ring for mouse users, keep for keyboard */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
   /* Firefox scrollbar support */
   .custom-scrollbar {
     scrollbar-width: thin;

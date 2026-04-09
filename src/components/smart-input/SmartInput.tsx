@@ -165,7 +165,12 @@ export default function SmartInput({
   initialContent = "",
   onContentChange,
 }: SmartInputProps) {
-  const [urlContent, setUrlContent, isLoaded] = useUrlState("");
+  const {
+    state: urlContent,
+    setUrlState: setUrlContent,
+    isLoaded,
+    urlOverflow,
+  } = useUrlState("");
 
   // State
   const [content, setContent] = useState(initialContent);
@@ -331,6 +336,15 @@ export default function SmartInput({
     }, URL_SAVE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [content, todos, activeView, setUrlContent, isLoaded, isControlled]);
+
+  // Warn when content exceeds URL length limits
+  useEffect(() => {
+    if (urlOverflow) {
+      toast.warning(
+        "Content too large to share via URL. Use copy/paste instead."
+      );
+    }
+  }, [urlOverflow]);
 
   // Auto-save to persistent history (U2)
   const debouncedContent = useDebounce(content, AUTO_SAVE_DELAY_MS);
@@ -759,7 +773,7 @@ export default function SmartInput({
     <main
       id="main-content"
       role="main"
-      className="flex w-full h-screen bg-white dark:bg-black overflow-hidden font-sans relative"
+      className="flex w-full h-screen bg-white dark:bg-black overflow-hidden font-sans relative app-container"
       {...dragHandlers}
     >
       {isDragging && (

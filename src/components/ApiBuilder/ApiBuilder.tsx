@@ -6,6 +6,7 @@ import { HeadersEditor } from "./HeadersEditor";
 import { BodyEditor } from "./BodyEditor";
 import { ResponsePanel } from "./ResponsePanel";
 import { HistoryPanel } from "./HistoryPanel";
+import { secureStorage } from "@/lib/secure-storage";
 import {
   ApiRequest,
   ApiResponse,
@@ -33,27 +34,23 @@ export function ApiBuilder({ onClose }: ApiBuilderProps = {}) {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<ApiRequest[]>([]);
 
-  // Load history from localStorage
+  // Load history from secureStorage
   useEffect(() => {
-    const savedHistory = localStorage.getItem(HISTORY_KEY);
+    const savedHistory = secureStorage.get<ApiRequest[]>(HISTORY_KEY);
     if (savedHistory) {
-      try {
-        setHistory(JSON.parse(savedHistory));
-      } catch (e) {
-        console.error("Failed to load history:", e);
-      }
+      setHistory(savedHistory);
     }
   }, []);
 
   const saveToHistory = (request: ApiRequest) => {
-    const newHistory = [request, ...history].slice(0, 50); // Keep last 50
+    const newHistory = [request, ...history].slice(0, 50);
     setHistory(newHistory);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
+    secureStorage.set(HISTORY_KEY, newHistory);
   };
 
   const clearHistory = () => {
     setHistory([]);
-    localStorage.removeItem(HISTORY_KEY);
+    secureStorage.remove(HISTORY_KEY);
     toast.success("History cleared");
   };
 
@@ -138,7 +135,7 @@ export function ApiBuilder({ onClose }: ApiBuilderProps = {}) {
         headers: data.headers ?? {},
         body: data.body ?? "",
         time: data.time ?? time,
-        size: data.size ?? (data.body?.length ?? 0),
+        size: data.size ?? data.body?.length ?? 0,
         error: data.error,
       };
 
@@ -163,8 +160,7 @@ export function ApiBuilder({ onClose }: ApiBuilderProps = {}) {
       }
     } catch (error: unknown) {
       const time = Date.now() - startTime;
-      const message =
-        error instanceof Error ? error.message : "Request failed";
+      const message = error instanceof Error ? error.message : "Request failed";
       setResponse({
         status: 0,
         statusText: "Error",
@@ -249,7 +245,9 @@ export function ApiBuilder({ onClose }: ApiBuilderProps = {}) {
           </div>
 
           {/* Request Configuration — single column when history is open to avoid overlap */}
-          <div className={`grid gap-6 ${showHistory ? "grid-cols-1" : "grid-cols-2"}`}>
+          <div
+            className={`grid gap-6 ${showHistory ? "grid-cols-1" : "grid-cols-2"}`}
+          >
             <HeadersEditor headers={headers} onChange={setHeaders} />
             <BodyEditor
               bodyType={bodyType}

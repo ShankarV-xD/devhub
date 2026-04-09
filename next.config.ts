@@ -6,13 +6,15 @@ const withBundleAnalyzer = createBundleAnalyzer({
 });
 
 // ── S1: Content Security Policy ───────────────────────────────────────────────
-// This is the static fallback CSP (no nonce) applied via next.config headers.
-// The proxy.ts adds a stricter nonce-based CSP on every live request.
-// Both layers work together.
+// This is the STATIC fallback CSP applied via next.config headers.
+// The middleware (src/middleware.ts) overrides this for page routes with a
+// nonce-based CSP that eliminates 'unsafe-inline' for scripts and styles.
+// This static fallback still protects static assets, images, and error pages.
+// The proxy route also adds its own nonce-based CSP for API endpoints.
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
+  script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com;
+  style-src 'self' https://fonts.googleapis.com https://cdn.jsdelivr.net;
   font-src 'self' https://fonts.gstatic.com;
   img-src 'self' data: blob: https:;
   connect-src 'self' https://us.i.posthog.com https://api.tinyurl.com;
@@ -90,6 +92,45 @@ const pwaConfig = withPWA({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  runtimeCaching: [
+    {
+      urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+      handler: "CacheFirst",
+      options: {
+        cacheName: "google-fonts-cache",
+        expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+        cacheableResponse: { statuses: [0, 200] },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+      handler: "CacheFirst",
+      options: {
+        cacheName: "gstatic-fonts-cache",
+        expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+        cacheableResponse: { statuses: [0, 200] },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*/i,
+      handler: "StaleWhileRevalidate",
+      options: {
+        cacheName: "jsdelivr-cache",
+        expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 30 },
+        cacheableResponse: { statuses: [0, 200] },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/unpkg\.com\/.*/i,
+      handler: "StaleWhileRevalidate",
+      options: {
+        cacheName: "unpkg-cache",
+        expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 30 },
+        cacheableResponse: { statuses: [0, 200] },
+      },
+    },
+  ],
+  buildExcludes: [/app-build-manifest\.json$/],
 });
 
 export default withBundleAnalyzer(pwaConfig(nextConfig));

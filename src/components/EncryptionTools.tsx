@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
   Lock,
@@ -10,6 +10,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface EncryptionToolsProps {
   isOpen: boolean;
@@ -33,6 +34,18 @@ export function EncryptionTools({
   const [inputText, setInputText] = useState(initialContent);
   const [outputText, setOutputText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const focusTrapRef = useFocusTrap(isOpen);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  // Save/restore focus on modal open/close
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -78,7 +91,7 @@ export function EncryptionTools({
           setOutputText("");
         }
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to process — check your input");
     } finally {
       setIsProcessing(false);
@@ -97,8 +110,16 @@ export function EncryptionTools({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl">
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Encryption and Decryption tool"
+    >
+      <div
+        ref={focusTrapRef}
+        className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-zinc-800 shrink-0">
           <div className="flex items-center gap-3">
@@ -117,6 +138,7 @@ export function EncryptionTools({
           <button
             onClick={onClose}
             className="p-2 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-500 hover:text-zinc-300"
+            aria-label="Close encryption dialog"
           >
             <X size={18} />
           </button>
