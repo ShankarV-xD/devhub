@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { detectType } from "@/lib/detector";
+import { Logo } from "@/components/Logo";
 import { useSwipeable } from "react-swipeable";
 import { haptics } from "@/utils/haptics";
 import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
@@ -817,48 +818,52 @@ export default function SmartInput({
       >
         {/* Header Area */}
         <div className="flex items-center justify-between mb-4 h-8 shrink-0">
-          <div
-            className={clsx(
-              "text-xs uppercase tracking-[0.2em] font-bold flex items-center gap-3 transition-colors duration-500 ease-out",
-              !content && activeView === "editor"
-                ? "text-zinc-450" // Use color instead of opacity to keep cursor bright
-                : "opacity-100",
-              activeView === "todo" ? UI_COLORS.todo : getTypeColor(type)
-            )}
-          >
-            <div className="flex items-center gap-2">
-              {activeView === "todo" ? null : activeView === "api" ? (
-                <div className="text-zinc-500">
-                  <Send size={14} />
-                </div>
-              ) : content && TYPE_ICONS[type as keyof typeof TYPE_ICONS] ? (
-                <div className="text-zinc-500">
-                  {(() => {
-                    const Icon: React.ElementType =
-                      TYPE_ICONS[type as keyof typeof TYPE_ICONS];
-                    return <Icon size={14} />;
-                  })()}
-                </div>
-              ) : null}
-              <span>
-                {activeView === "todo"
-                  ? "TODO LIST"
-                  : activeView === "api"
-                    ? "API REQUEST BUILDER"
-                    : isDiffMode
-                      ? "DIFF MODE"
-                      : content
-                        ? type
-                        : "WAITING FOR INPUT..."}
-              </span>
-            </div>
+          <div className="flex items-center gap-3 min-w-0">
+            <Logo className="shrink-0" />
+            <span className="text-zinc-700 dark:text-zinc-600">|</span>
+            <div
+              className={clsx(
+                "text-xs uppercase tracking-[0.2em] font-bold flex items-center gap-3 transition-colors duration-500 ease-out",
+                !content && activeView === "editor"
+                  ? "text-zinc-450" // Use color instead of opacity to keep cursor bright
+                  : "opacity-100",
+                activeView === "todo" ? UI_COLORS.todo : getTypeColor(type)
+              )}
+            >
+              <div className="flex items-center gap-2">
+                {activeView === "todo" ? null : activeView === "api" ? (
+                  <div className="text-zinc-500">
+                    <Send size={14} />
+                  </div>
+                ) : content && TYPE_ICONS[type as keyof typeof TYPE_ICONS] ? (
+                  <div className="text-zinc-500">
+                    {(() => {
+                      const Icon: React.ElementType =
+                        TYPE_ICONS[type as keyof typeof TYPE_ICONS];
+                      return <Icon size={14} />;
+                    })()}
+                  </div>
+                ) : null}
+                <span>
+                  {activeView === "todo"
+                    ? "TODO LIST"
+                    : activeView === "api"
+                      ? "API REQUEST BUILDER"
+                      : isDiffMode
+                        ? "DIFF MODE"
+                        : content
+                          ? type
+                          : "WAITING FOR INPUT..."}
+                </span>
+              </div>
 
-            {sizeWarning && (
-              <span className="ml-4 normal-case tracking-normal flex items-center gap-1.5 animate-in fade-in rounded-full px-2 py-0.5 text-[10px] bg-amber-950/50 text-amber-400 border border-amber-900/50">
-                <AlertTriangle size={10} />
-                {sizeWarning}
-              </span>
-            )}
+              {sizeWarning && (
+                <span className="ml-4 normal-case tracking-normal flex items-center gap-1.5 animate-in fade-in rounded-full px-2 py-0.5 text-[10px] bg-amber-950/50 text-amber-400 border border-amber-900/50">
+                  <AlertTriangle size={10} />
+                  {sizeWarning}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Statistics and Action Buttons */}
