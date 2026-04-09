@@ -254,6 +254,7 @@ export default function SmartInput({
   const {
     type,
     setType,
+    applyType,
     viewMode,
     setViewMode,
     parsedJson,
@@ -1401,7 +1402,7 @@ export default function SmartInput({
           setContent={handleContentChange}
           setViewMode={handleViewChange}
           setLastTransform={setLastTransform}
-          setType={setType}
+          setType={applyType}
           isDiffMode={isDiffMode}
           setIsDiffMode={setIsDiffMode}
           setDiffOriginal={setDiffOriginal}

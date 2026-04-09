@@ -120,6 +120,7 @@ export function useDetection(
   return {
     type,
     setType,
+    applyType,
     viewMode,
     setViewMode,
     parsedJson,
