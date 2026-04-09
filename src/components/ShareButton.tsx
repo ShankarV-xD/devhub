@@ -44,24 +44,18 @@ export function ShareButton({
     }
 
     // --- Normal URL + text sharing ---
+    await fallbackShare();
+
     if (navigator.share) {
       try {
         await navigator.share({
           title: "DevHub Content",
-          text: content.slice(0, 200), // Keep preview short
+          text: content.slice(0, 200),
           url: window.location.href,
         });
-        haptics.success();
-        toast.success("Shared successfully!");
-      } catch (error) {
-        // User cancelled — don't show an error
-        if (error instanceof Error && error.name !== "AbortError") {
-          console.error("Share failed:", error);
-          await fallbackShare();
-        }
+      } catch {
+        // User cancelled or share failed — link already in clipboard
       }
-    } else {
-      await fallbackShare();
     }
   };
 

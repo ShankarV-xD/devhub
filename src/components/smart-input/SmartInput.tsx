@@ -34,6 +34,7 @@ import {
   Sparkles,
   Info,
   Send,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
@@ -171,6 +172,7 @@ export default function SmartInput({
     setUrlState: setUrlContent,
     isLoaded,
     urlOverflow,
+    getShareableUrl,
   } = useUrlState("");
 
   // State
@@ -223,6 +225,7 @@ export default function SmartInput({
   const [isEncryptionOpen, setIsEncryptionOpen] = useState(false);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Reversibility State
   const [lastTransform, setLastTransform] = useState<{
@@ -339,14 +342,7 @@ export default function SmartInput({
     return () => clearTimeout(timer);
   }, [content, todos, activeView, setUrlContent, isLoaded, isControlled]);
 
-  // Warn when content exceeds URL length limits
-  useEffect(() => {
-    if (urlOverflow) {
-      toast.warning(
-        "Content too large to share via URL. Use copy/paste instead."
-      );
-    }
-  }, [urlOverflow]);
+  // urlOverflow handled internally by useUrlState; share button handles large content
 
   // Auto-save to persistent history (U2)
   const debouncedContent = useDebounce(content, AUTO_SAVE_DELAY_MS);
@@ -518,45 +514,50 @@ export default function SmartInput({
     toast.success(`Downloaded as ${filename}`);
   };
 
-  // M6: Upgraded share to use native Web Share API (with URL clipboard fallback)
+  // M6: Upgraded share — uploads large content to server, always returns valid URL
   const handleShare = async () => {
-    if (!content) {
-      toast.error("No content to share");
-      return;
-    }
+    if (!content || isSharing) return;
+    setIsSharing(true);
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "DevHub Content",
-          text: content.slice(0, 200),
-          url: window.location.href,
-        });
-        haptics.success();
-        toast.success("Shared successfully!");
-      } catch (error: unknown) {
-        // User cancelled — not an error
-        if (error instanceof Error && error.name !== "AbortError") {
-          console.error("Share failed:", error);
-          // Fall through to clipboard fallback
-          try {
-            await navigator.clipboard.writeText(window.location.href);
-            haptics.light();
-            toast.success("Link copied to clipboard!");
-          } catch {
-            toast.error("Failed to share or copy link");
-          }
+    try {
+      const url = await getShareableUrl(content);
+
+      if (!url) {
+        await navigator.clipboard.writeText(content);
+        haptics.light();
+        toast.success("Content copied to clipboard");
+        return;
+      }
+
+      await navigator.clipboard.writeText(url);
+      haptics.light();
+      const isServerShared = url.includes("?s=");
+      toast.success(
+        isServerShared
+          ? "Share link copied!"
+          : "Shareable link copied to clipboard!",
+        {
+          description: isServerShared
+            ? "Content saved - shareable link copied to clipboard."
+            : "Paste it anywhere to share your content.",
+        }
+      );
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "DevHub Content",
+            text: content.slice(0, 200),
+            url,
+          });
+        } catch {
+          // User cancelled — link already in clipboard, nothing to do
         }
       }
-    } else {
-      // Fallback: copy current URL to clipboard
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        haptics.light();
-        toast.success("Shareable link copied to clipboard!");
-      } catch {
-        toast.error("Failed to copy link");
-      }
+    } catch {
+      toast.error("Failed to share");
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -962,13 +963,32 @@ export default function SmartInput({
 
             {/* M1 + M6: Share Button — 44px touch target, Web Share API */}
             {content && activeView === "editor" && (
-              <Tooltip text="Share content">
+              <Tooltip
+                text={
+                  isSharing
+                    ? "Generating link..."
+                    : urlOverflow
+                      ? "Share via link (content too large for URL)"
+                      : "Share content"
+                }
+              >
                 <button
                   onClick={handleShare}
+                  disabled={isSharing}
                   aria-label="Share content"
-                  className="p-2.5 min-w-touch min-h-touch flex items-center justify-center rounded-lg hover:bg-zinc-900 text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
+                  className={`p-2.5 min-w-touch min-h-touch flex items-center justify-center rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
+                    urlOverflow
+                      ? "text-emerald-500 hover:text-emerald-400 hover:bg-emerald-950/30"
+                      : "text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900"
+                  }`}
                 >
-                  <Globe size={16} />
+                  {isSharing ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : urlOverflow ? (
+                    <Link2 size={16} />
+                  ) : (
+                    <Globe size={16} />
+                  )}
                 </button>
               </Tooltip>
             )}

@@ -24,7 +24,7 @@ export function checkContentSize(content: string): SizeCheckResult {
   if (size > SIZE_LIMITS.WARNING) {
     return {
       allowed: true,
-      warning: `Large content detected (${formatSize(size)}). Performance may be affected.`,
+      warning: `Large content detected (${formatSize(size)}).`,
     };
   }
 

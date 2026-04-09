@@ -164,3 +164,28 @@ textarea,
     height: 3px !important;
   }
 }
+
+/* Sonner toast overrides — must be outside @layer to override sonner's un-layered CSS */
+[data-sonner-toast] {
+  width: fit-content !important;
+  min-width: unset !important;
+  max-width: 420px !important;
+  padding: 10px 16px !important;
+}
+
+[data-sonner-toaster] {
+  --width: 420px;
+}
+
+[data-sonner-toaster][data-x-position="center"] [data-sonner-toast] {
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content !important;
+}
+
+@media (min-width: 1024px) {
+  [data-sonner-toaster][data-x-position="center"] {
+    left: calc(50vw - 120px) !important;
+  }
+}
