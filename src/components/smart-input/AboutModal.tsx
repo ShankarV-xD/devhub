@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { X, TerminalSquare } from "lucide-react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface AboutModalProps {
   isOpen: boolean;
@@ -7,6 +8,18 @@ interface AboutModalProps {
 }
 
 export function AboutModal({ isOpen, onClose }: AboutModalProps) {
+  const focusTrapRef = useFocusTrap(isOpen);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -71,14 +84,22 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="About DevHub"
+    >
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity cursor-pointer"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      <div className="relative z-[101] w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+      <div
+        ref={focusTrapRef}
+        className="relative z-[101] w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
+      >
         {/* Header */}
         <div className="flex flex-col gap-1 p-4 md:p-5 border-b border-zinc-800/50 bg-zinc-900/40 rounded-t-xl relative overflow-hidden shrink-0">
           <div className="absolute top-0 right-0 p-32 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none" />

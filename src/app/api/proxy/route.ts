@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
+ * Server-side proxy for cross-origin API requests.
+ *
+ * SECURITY NOTE: This route intentionally does NOT set CORS headers
+ * (Access-Control-Allow-Origin, etc.). Since it's a same-origin endpoint
+ * (/api/proxy), only the DevHub frontend can call it. Adding CORS headers
+ * would allow any third-party site to use this proxy, which would be a
+ * security risk. If cross-origin access is ever needed, restrict it to
+ * specific trusted origins only.
+ */
+
+/**
  * S2: Server-side in-memory rate limiter.
  * Limits each IP to 30 proxy requests per minute — enough for normal
  * API builder usage while preventing abuse.

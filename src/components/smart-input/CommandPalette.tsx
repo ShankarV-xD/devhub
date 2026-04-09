@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { ContentType } from "@/lib/detector";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export function CommandPalette({
   currentType,
 }: CommandPaletteProps) {
   const [search, setSearch] = useState("");
+  const focusTrapRef = useFocusTrap(isOpen);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -57,7 +59,12 @@ export function CommandPalette({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] px-4">
+    <div
+      className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Command palette"
+    >
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
@@ -66,6 +73,7 @@ export function CommandPalette({
 
       <Command
         label="Command Menu"
+        ref={focusTrapRef}
         className="relative z-[101] w-full max-w-lg overflow-hidden bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-200 flex flex-col"
       >
         <div className="flex items-center border-b border-zinc-800 px-3 shrink-0">
@@ -302,7 +310,7 @@ function CommandItem({
 }: {
   children: React.ReactNode;
   onSelect: () => void;
-  icon?: any;
+  icon?: React.ElementType;
   shortcut?: string;
 }) {
   return (

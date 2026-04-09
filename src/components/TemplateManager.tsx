@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   X,
   BookMarked,
@@ -11,6 +11,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface Template {
   id: string;
@@ -351,6 +352,18 @@ export function TemplateManager({
   onLoad,
   currentContent = "",
 }: TemplateManagerProps) {
+  const focusTrapRef = useFocusTrap(isOpen);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [isOpen]);
+
   const [activeTab, setActiveTab] = useState<"builtin" | "custom">("builtin");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [search, setSearch] = useState("");
@@ -359,12 +372,22 @@ export function TemplateManager({
   const [isSaving, setIsSaving] = useState(false);
   const [selected, setSelected] = useState<Template | null>(null);
 
-  // Load custom templates from localStorage on mount
+  // Load custom templates when panel opens
   useEffect(() => {
-    if (isOpen) {
-      setCustomTemplates(loadCustomTemplates());
-    }
+    if (!isOpen) return;
+    const loaded = loadCustomTemplates();
+    setCustomTemplates(loaded); // eslint-disable-line react-hooks/set-state-in-effect -- loading from localStorage on open is intentional mount-time init
   }, [isOpen]);
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   const builtInCategories = useMemo(
     () => [
@@ -436,15 +459,24 @@ export function TemplateManager({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 flex">
+    <div
+      className="fixed inset-y-0 right-0 z-50 flex"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Template manager"
+    >
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Panel */}
-      <div className="relative ml-auto w-[420px] bg-zinc-900 border-l border-zinc-800 flex flex-col h-full shadow-2xl animate-in slide-in-from-right duration-300">
+      <div
+        ref={focusTrapRef}
+        className="relative ml-auto w-[420px] bg-zinc-900 border-l border-zinc-800 flex flex-col h-full shadow-2xl animate-in slide-in-from-right duration-300"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
           <div className="flex items-center gap-2.5">

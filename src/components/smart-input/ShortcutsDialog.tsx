@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Keyboard, X } from "lucide-react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface ShortcutsDialogProps {
   isOpen: boolean;
@@ -7,6 +8,18 @@ interface ShortcutsDialogProps {
 }
 
 export function ShortcutsDialog({ isOpen, onClose }: ShortcutsDialogProps) {
+  const focusTrapRef = useFocusTrap(isOpen);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -52,14 +65,22 @@ export function ShortcutsDialog({ isOpen, onClose }: ShortcutsDialogProps) {
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Keyboard shortcuts"
+    >
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      <div className="relative z-[101] w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
+      <div
+        ref={focusTrapRef}
+        className="relative z-[101] w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]"
+      >
         <div className="flex items-center justify-between p-4 border-b border-zinc-800">
           <div className="flex items-center gap-2">
             <Keyboard className="w-5 h-5 text-zinc-400" />
