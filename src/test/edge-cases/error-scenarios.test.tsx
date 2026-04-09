@@ -102,7 +102,7 @@ describe("Error Scenario Edge Cases", () => {
         .mockImplementation(
           () =>
             new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("Request timeout")), 100)
+              setTimeout(() => reject(new Error("Request timeout")), 300)
             )
         );
 
@@ -139,15 +139,17 @@ describe("Error Scenario Edge Cases", () => {
   describe("Input Validation Edge Cases", () => {
     it("should handle malformed JSON input", () => {
       const JsonValidator = ({ input }: { input: string }) => {
-        const [error, setError] = React.useState<string | null>(null);
-
+        let currentError: string | null = null;
+        let isValid = false;
         try {
           JSON.parse(input);
-          return <div>Valid JSON</div>;
+          isValid = true;
         } catch (e) {
-          setError((e as Error).message);
-          return <div>Invalid JSON: {error}</div>;
+          currentError = (e as Error).message;
         }
+
+        if (isValid) return <div>Valid JSON</div>;
+        return <div>Invalid JSON: {currentError}</div>;
       };
 
       const malformedJson = '{"name": "test", "invalid":}';
@@ -182,19 +184,27 @@ describe("Error Scenario Edge Cases", () => {
 
     it("should handle special characters and encoding", () => {
       const SpecialCharacterHandler = ({ input }: { input: string }) => {
+        let encodingError: string | null = null;
+        let isDecodedDiff = false;
         try {
           // Test for various encoding issues
           const encoded = encodeURIComponent(input);
           const decoded = decodeURIComponent(encoded);
 
           if (decoded !== input) {
-            return <div>Encoding issue detected</div>;
+            isDecodedDiff = true;
           }
-
-          return <div>Special characters handled: {input}</div>;
         } catch (e) {
-          return <div>Encoding error: {(e as Error).message}</div>;
+          encodingError = (e as Error).message;
         }
+
+        if (encodingError) {
+          return <div>Encoding error: {encodingError}</div>;
+        }
+        if (isDecodedDiff) {
+          return <div>Encoding issue detected</div>;
+        }
+        return <div>Special characters handled: {input}</div>;
       };
 
       const specialChars = "🚀 Test with émojis and spëcial chars";
@@ -276,18 +286,21 @@ describe("Error Scenario Edge Cases", () => {
     it("should handle missing browser APIs", () => {
       // Mock missing API
       const originalLocalStorage = global.localStorage;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (global as any).localStorage = undefined;
 
       const LocalStorageComponent = () => {
-        const [error, setError] = React.useState<string | null>(null);
-
+        let currentError: string | null = null;
+        let isWorking = false;
         try {
           localStorage.setItem("test", "value");
-          return <div>LocalStorage working</div>;
-        } catch (e) {
-          setError("LocalStorage not available");
-          return <div>Fallback: {error}</div>;
+          isWorking = true;
+        } catch {
+          currentError = "LocalStorage not available";
         }
+
+        if (isWorking) return <div>LocalStorage working</div>;
+        return <div>Fallback: {currentError}</div>;
       };
 
       render(<LocalStorageComponent />);
@@ -301,6 +314,7 @@ describe("Error Scenario Edge Cases", () => {
     it("should handle unsupported features gracefully", () => {
       // Mock unsupported feature
       const originalIntersectionObserver = global.IntersectionObserver;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (global as any).IntersectionObserver = undefined;
 
       const IntersectionObserverComponent = () => {
