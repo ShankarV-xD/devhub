@@ -15,7 +15,6 @@ import {
   History,
   Upload,
   Link2,
-  Brush,
   Braces,
   FileSpreadsheet,
   FileJson,
@@ -33,6 +32,7 @@ import {
   Clock,
   Sparkles,
   Info,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
@@ -153,7 +153,7 @@ const TYPE_ICONS = {
   graphql: Code,
   todo: ListTodo,
   ascii: Sparkles,
-  css: Brush,
+  css: FileCode,
 };
 
 interface SmartInputProps {
@@ -484,7 +484,17 @@ export default function SmartInput({
     );
   };
 
-  const handleLoadExample = async (exampleType: "json" | "jwt" | "sql") => {
+  const handleLoadExample = async (
+    exampleType:
+      | "json"
+      | "jwt"
+      | "sql"
+      | "base64"
+      | "regex"
+      | "url"
+      | "html"
+      | "yaml"
+  ) => {
     const { EXAMPLES } = await import("@/lib/examples");
     handleContentChange(EXAMPLES[exampleType]);
     // Focus the textarea after loading
@@ -817,17 +827,19 @@ export default function SmartInput({
             )}
           >
             <div className="flex items-center gap-2">
-              {activeView !== "todo" &&
-                content &&
-                TYPE_ICONS[type as keyof typeof TYPE_ICONS] && (
-                  <div className="text-zinc-500">
-                    {(() => {
-                      const Icon: React.ElementType =
-                        TYPE_ICONS[type as keyof typeof TYPE_ICONS];
-                      return <Icon size={14} />;
-                    })()}
-                  </div>
-                )}
+              {activeView === "todo" ? null : activeView === "api" ? (
+                <div className="text-zinc-500">
+                  <Send size={14} />
+                </div>
+              ) : content && TYPE_ICONS[type as keyof typeof TYPE_ICONS] ? (
+                <div className="text-zinc-500">
+                  {(() => {
+                    const Icon: React.ElementType =
+                      TYPE_ICONS[type as keyof typeof TYPE_ICONS];
+                    return <Icon size={14} />;
+                  })()}
+                </div>
+              ) : null}
               <span>
                 {activeView === "todo"
                   ? "TODO LIST"

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Suspense } from "react";
 import { PostHogPageView } from "@/components/PostHogPageView";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "sonner";
 
 const geistSans = Geist({
@@ -90,7 +91,7 @@ export default function RootLayout({
         <Suspense>
           <PostHogPageView />
         </Suspense>
-        {children}
+        <ErrorBoundary>{children}</ErrorBoundary>
         <Toaster position="top-center" richColors theme="dark" />
       </body>
     </html>
