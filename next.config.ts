@@ -13,8 +13,8 @@ const withBundleAnalyzer = createBundleAnalyzer({
 // The proxy route also adds its own nonce-based CSP for API endpoints.
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com;
-  style-src 'self' https://fonts.googleapis.com https://cdn.jsdelivr.net;
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
   font-src 'self' https://fonts.gstatic.com;
   img-src 'self' data: blob: https:;
   connect-src 'self' https://us.i.posthog.com https://api.tinyurl.com;
