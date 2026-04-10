@@ -1,5 +1,5 @@
 /**
- * Next.js Proxy (formerly Middleware)
+ * Next.js Proxy (Edge Middleware)
  *
  * Runs on every request at the edge (before pages/API routes).
  *
@@ -14,40 +14,33 @@ import type { NextRequest } from "next/server";
 
 export function proxy(request: NextRequest) {
   // ── S4: HTTPS enforcement ─────────────────────────────────────────────────
-  // Only enforce in production — dev always runs on HTTP localhost.
   if (process.env.NODE_ENV === "production") {
     const proto = request.headers.get("x-forwarded-proto") ?? "http";
     if (proto === "http") {
       const httpsUrl = request.nextUrl.clone();
       httpsUrl.protocol = "https:";
-      return NextResponse.redirect(httpsUrl, 301); // permanent
+      return NextResponse.redirect(httpsUrl, 301);
     }
   }
 
   // ── S1: CSP nonce generation ──────────────────────────────────────────────
-  // A fresh nonce on every request prevents replay attacks.
-  // crypto.getRandomValues works in the Edge runtime without Node APIs.
   const nonceBytes = new Uint8Array(16);
   crypto.getRandomValues(nonceBytes);
   const nonce = Buffer.from(nonceBytes).toString("base64");
 
   const cspHeader = buildCSP(nonce);
 
-  // Forward nonce to the layout via a custom request header
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", cspHeader);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
-
-  // Also set CSP on the outgoing response so browsers enforce it
   response.headers.set("Content-Security-Policy", cspHeader);
 
   return response;
 }
 
 export const config = {
-  // Run on all routes except Next.js internals and static files
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
@@ -63,6 +56,7 @@ function buildCSP(nonce: string): string {
     script-src
       'self'
       'nonce-${nonce}'
+      'unsafe-inline'
       'unsafe-eval'
       https://cdn.jsdelivr.net
       https://unpkg.com;
@@ -75,6 +69,7 @@ function buildCSP(nonce: string): string {
 
     font-src
       'self'
+      data:
       https://fonts.gstatic.com;
 
     img-src
@@ -86,7 +81,8 @@ function buildCSP(nonce: string): string {
     connect-src
       'self'
       ${process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com"}
-      https://api.tinyurl.com;
+      https://api.tinyurl.com
+      https://cdn.jsdelivr.net;
 
     worker-src
       'self'
