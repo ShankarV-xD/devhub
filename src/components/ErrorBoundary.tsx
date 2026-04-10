@@ -45,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-8">
+        <div className="min-h-svh bg-zinc-950 flex items-center justify-center p-8">
           <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center">
             <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="w-8 h-8 text-red-500" />
@@ -56,7 +56,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </h1>
 
             <p className="text-zinc-400 mb-6">
-              We encountered an unexpected error. Don't worry, your data is
+              We encountered an unexpected error. Don&apos;t worry, your data is
               safe.
             </p>
 

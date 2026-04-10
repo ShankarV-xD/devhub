@@ -786,7 +786,7 @@ export default function SmartInput({
     <main
       id="main-content"
       role="main"
-      className="flex w-full h-screen bg-white dark:bg-black overflow-hidden font-sans relative app-container"
+      className="flex w-full h-svh bg-white dark:bg-black overflow-hidden font-sans relative app-container"
       {...dragHandlers}
     >
       {isDragging && (

@@ -35,10 +35,12 @@
 
 /* ── M3: Mobile Viewport Height Fix ─────────────────────────────────────────
    Prevents the virtual keyboard from hiding content.
+   `100svh` uses the small viewport height (stable, doesn't change on scroll).
    `-webkit-fill-available` accounts for Safari's dynamic toolbar height.
    ───────────────────────────────────────────────────────────────────────── */
 body {
-  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100vh; /* Fallback for older browsers */
 }
 
 @supports (-webkit-touch-callout: none) {
@@ -66,7 +68,8 @@ body {
 /* iOS PWA: ensure the editor area doesn't get obscured by the virtual keyboard */
 @supports (-webkit-touch-callout: none) {
   .editor-container {
-    height: calc(100vh - env(safe-area-inset-bottom) - 60px);
+    height: calc(100svh - env(safe-area-inset-bottom) - 60px);
+    height: calc(100vh - env(safe-area-inset-bottom) - 60px); /* Fallback */
   }
 }
 
@@ -112,6 +115,17 @@ textarea,
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Stable viewport height for mobile (doesn't recalc on scroll) */
+  .h-svh {
+    height: 100svh;
+    height: 100vh; /* Fallback */
+  }
+
+  .min-h-svh {
+    min-height: 100svh;
+    min-height: 100vh; /* Fallback */
   }
 
   /* Visible focus indicators for keyboard navigation */

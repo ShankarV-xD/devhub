@@ -24,7 +24,11 @@ export function MultiTabSmartInput() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    // Using requestAnimationFrame to avoid setState-in-effect warning
+    // while still ensuring client-side only rendering
+    requestAnimationFrame(() => {
+      setMounted(true);
+    });
   }, []);
 
   // Create initial tab if none exists - ONLY after hydration
@@ -119,7 +123,7 @@ export function MultiTabSmartInput() {
   };
 
   return (
-    <div className="flex flex-col w-full h-screen">
+    <div className="flex flex-col w-full h-svh">
       <TabBar
         tabs={tabs}
         activeTabId={activeTabId}
