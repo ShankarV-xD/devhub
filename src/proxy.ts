@@ -28,7 +28,7 @@ export function proxy(request: NextRequest) {
   crypto.getRandomValues(nonceBytes);
   const nonce = Buffer.from(nonceBytes).toString("base64");
 
-  const cspHeader = buildCSP(nonce);
+  const cspHeader = buildCSP();
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
@@ -49,13 +49,12 @@ export const config = {
 // ---------------------------------------------------------------------------
 // CSP builder
 // ---------------------------------------------------------------------------
-function buildCSP(nonce: string): string {
+function buildCSP() {
   const policy = `
     default-src 'self';
 
     script-src
       'self'
-      'nonce-${nonce}'
       'unsafe-inline'
       'unsafe-eval'
       https://cdn.jsdelivr.net
