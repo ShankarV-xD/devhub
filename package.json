@@ -96,8 +96,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5.1.2",
-    "@vitest/coverage-v8": "4.0.17",
-    "@vitest/ui": "^4.0.17",
+    "@vitest/coverage-v8": "4.1.4",
+    "@vitest/ui": "^4.1.4",
     "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
@@ -109,6 +109,6 @@
     "standard-version": "^9.5.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.0.17"
+    "vitest": "^4.1.4"
   }
 }
